@@ -1,11 +1,13 @@
 from PyQt6.QtWidgets import (
     QDialog, QFileDialog, QDialogButtonBox,
-    QVBoxLayout, QHBoxLayout, QComboBox,
+    QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox,
     QLabel, QPushButton, QLineEdit, QScrollArea, QWidget
 )
 
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
+import os
+from uuid import uuid4
 
 BLENDER_VERSION_LIST = [
     "2.79", "2.80", "2.81", "2.82", "2.83",
@@ -19,11 +21,11 @@ RENDER_ENGINE_LIST = [
 
 class FileSelectDialog(QDialog):
     
-    imageList = []
+    image_dict = {}
     
     def __init__(self):
         super().__init__()
-        
+        self.setMinimumWidth(500)
         self.setWindowTitle("Select 3D Model File")
         buttonBoxFlag = (QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         
@@ -33,38 +35,47 @@ class FileSelectDialog(QDialog):
         
         mainLayout = QVBoxLayout()
         
-        fileInputLayout = QHBoxLayout()
+        file_input_layout = QHBoxLayout()
         
-        self.filePathLabel = QLabel("<i>Click the 'Select File' button to select a file</i>")
-        selectFileButton = QPushButton("Select File")
-        selectFileButton.setFixedWidth(150)
-        selectFileButton.clicked.connect(self.select_file)
+        self.file_path_label = QLineEdit()
+        self.file_path_label.setReadOnly(True)
+        self.file_path_label.setPlaceholderText("Click the 'Select File' button to select a file")
+        select_file_button = QPushButton("Select File")
+        select_file_button.setFixedWidth(100)
+        select_file_button.clicked.connect(self.select_file)
         
-        fileInputLayout.addWidget(self.filePathLabel)
-        fileInputLayout.addWidget(selectFileButton)
+        file_input_layout.addWidget(self.file_path_label)
+        file_input_layout.addWidget(select_file_button)
         
-        mainLayout.addLayout(fileInputLayout)
+        mainLayout.addLayout(file_input_layout)
         
+        self.file_name = QLineEdit()
+        self.file_name.setPlaceholderText("File Name")
+        mainLayout.addWidget(self.file_name)
+
         categoryLayout = QHBoxLayout()
         
-        category1Layout = QVBoxLayout()
-        self.category1LineEdit = QLineEdit()
-        category1Layout.addWidget(QLabel("Category 1"))
-        category1Layout.addWidget(self.category1LineEdit)
+        category_1_layout = QVBoxLayout()
+        self.category_1_line_edit = QLineEdit()
+        self.category_1_line_edit.setPlaceholderText("Category 1")
+        category_1_layout.addWidget(QLabel("Category 1"))
+        category_1_layout.addWidget(self.category_1_line_edit)
         
-        category2Layout = QVBoxLayout()
-        self.category2LineEdit = QLineEdit()
-        category2Layout.addWidget(QLabel("Category 2"))
-        category2Layout.addWidget(self.category2LineEdit)
+        category_2_layout = QVBoxLayout()
+        self.category_2_line_edit = QLineEdit()
+        self.category_2_line_edit.setPlaceholderText("Category 2")
+        category_2_layout.addWidget(QLabel("Category 2"))
+        category_2_layout.addWidget(self.category_2_line_edit)
         
-        category3Layout = QVBoxLayout()
-        self.category3LineEdit = QLineEdit()
-        category3Layout.addWidget(QLabel("Category 3"))
-        category3Layout.addWidget(self.category3LineEdit)
+        category_3_layout = QVBoxLayout()
+        self.category_3_line_edit = QLineEdit()
+        category_3_layout.addWidget(QLabel("Category 3"))
+        self.category_3_line_edit.setPlaceholderText("Category 3")
+        category_3_layout.addWidget(self.category_3_line_edit)
         
-        categoryLayout.addLayout(category1Layout)
-        categoryLayout.addLayout(category2Layout)
-        categoryLayout.addLayout(category3Layout)
+        categoryLayout.addLayout(category_1_layout)
+        categoryLayout.addLayout(category_2_layout)
+        categoryLayout.addLayout(category_3_layout)
 
         mainLayout.addLayout(categoryLayout)
         
@@ -92,41 +103,17 @@ class FileSelectDialog(QDialog):
         
         addImageButton = QPushButton("Add Image")
         addImageButton.clicked.connect(self.add_images)
-        addImageButton.setFixedWidth(150)
+        addImageButton.setFixedWidth(100)
         imageLabelAndAddImageButtonLayout.addWidget(QLabel("Images"))
         imageLabelAndAddImageButtonLayout.addWidget(addImageButton)
         imageInputLayout.addLayout(imageLabelAndAddImageButtonLayout)
         
-        imagePixmap = QPixmap('a.jpeg').scaledToHeight(200)
-        itemWidth = int(imagePixmap.width()/2)
-        
         self.imageListLayout = QHBoxLayout()
-        for i in range(1):
-            imageItemLayout = QVBoxLayout()
-            imageLabel = QLabel()
-            imageLabel.setPixmap(imagePixmap)
-            imageItemLayout.addWidget(imageLabel)
-            
-            imageNameAndButtonLayout = QHBoxLayout()
-            imageNameAndButtonLayout.setSpacing(0)
-            imageName = QLabel("Image Name")
-            imageName.setFixedWidth(itemWidth)
-            deleteImageButton = QPushButton("Delete")
-            deleteImageButton.clicked.connect(self.delete_image)
-            deleteImageButton.setStyleSheet("background-color: red")
-            deleteImageButton.setFixedWidth(itemWidth)
-            
-            imageNameAndButtonLayout.addWidget(imageName)
-            imageNameAndButtonLayout.addWidget(deleteImageButton)
-            
-            imageItemLayout.addLayout(imageNameAndButtonLayout)
-            
-            self.imageListLayout.addLayout(imageItemLayout)
-            self.imageList.append(imageItemLayout)
-            
+
         imageScrollWidget = QWidget()
         imageScrollWidget.setLayout(self.imageListLayout)
         imageScrollArea = QScrollArea()
+        imageScrollArea.setMinimumHeight(300)
         imageScrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         imageScrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         imageScrollArea.setWidgetResizable(True)
@@ -140,42 +127,100 @@ class FileSelectDialog(QDialog):
         
         self.setLayout(mainLayout)
     
+
+    @pyqtSlot()
     def select_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "3D Model Files (*.stl *.obj *.blend *.fbx);;Any Files (*)")
-        if file_name:
-            self.filePathLabel.setText(file_name)
-    
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "3D Model Files (*.stl *.obj *.blend *.fbx);;Any Files (*)")
+        if len(self.image_dict) > 5:
+            tooManyImageMessageBox = TooManyImageMessageBox()
+            tooManyImageMessageBox.exec()
+            return
+        
+        if file_path:
+            self.file_path_label.setText(file_path)
+            *category_list, file_name = file_path.split(os.sep)
+            self.file_name.setText(file_name)
+
+            category_line_edit_list = [
+                self.category_1_line_edit,
+                self.category_2_line_edit,
+                self.category_3_line_edit
+            ]
+            for i, category_line_edit in enumerate(category_line_edit_list):
+                try:
+                    category_line_edit.setText(category_list.pop())
+                except IndexError:
+                    for i in range(len(category_list)):
+                        category_list[i].setText("N/A")
+                    break
+            
+    @pyqtSlot()
     def add_images(self):
         file_list, _ = QFileDialog.getOpenFileNames(self, "Select Image Files", __file__, "Image Files (*.png *.jpg *.jpeg *.bmp *.webp);;Any Files (*)")
         if not file_list:
             return
         for file_path in file_list:
-            imagePixmap = QPixmap(file_path).scaledToHeight(200)
-            itemWidth = int(imagePixmap.width()/2)
-            
-            imageItemLayout = QVBoxLayout()
-            imageLabel = QLabel()
-            imageLabel.setPixmap(imagePixmap)
-            imageItemLayout.addWidget(imageLabel)
-            
-            imageNameAndButtonLayout = QHBoxLayout()
-            imageNameAndButtonLayout.setSpacing(0)
-            
-            imageName = QLabel("Image Name")
-            imageName.setFixedWidth(itemWidth)
-            deleteImageButton = QPushButton("Delete")
-            deleteImageButton.clicked.connect(self.delete_image, file_path)
-            deleteImageButton.setStyleSheet("background-color: red")
-            deleteImageButton.setFixedWidth(itemWidth)
-            imageNameAndButtonLayout.addWidget(imageName)
-            imageNameAndButtonLayout.addWidget(deleteImageButton)
-            
-            imageItemLayout.addLayout(imageNameAndButtonLayout)
-            
-            self.imageListLayout.addLayout(imageItemLayout)
-            self.imageList.append(imageItemLayout)
-    
+            image_item_layout = ImageItemLayout(file_path)
+            self.imageListLayout.addLayout(image_item_layout)
+            self.image_dict[image_item_layout.image_id] = image_item_layout
+            image_item_layout.image_deleted.connect(self.delete_image)
+
+    @pyqtSlot(str)
+    def delete_image(self, image_id):
+        image_item_layout: ImageItemLayout = self.image_dict.pop(image_id, None)
+        if image_item_layout:
+            self.imageListLayout.removeItem(image_item_layout)
+            image_item_layout.deleteLater()
+
+class TooManyImageMessageBox(QMessageBox):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Too Many Images")
+        self.setText("You can only add 5 images at a time")
+        self.setIcon(QMessageBox.Icon.Warning)
+        self.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+class ImageItemLayout(QVBoxLayout):
+
+    image_deleted = pyqtSignal(str)
+
+    def __init__(self, file_path: str):
+        super().__init__()
+        self.setSpacing(10)
+
+        self.file_path = file_path
+        name = os.path.basename(file_path)
+        self.image_id = str(uuid4())
+
+        imagePixmap = QPixmap(file_path).scaledToHeight(200, Qt.TransformationMode.SmoothTransformation)
+        buttonWidth = imagePixmap.width()
+
+        self.image = QLabel()
+        self.image.setPixmap(imagePixmap)
+
+        self.addWidget(self.image)
+
+        self.image_name_and_btn_layout = QHBoxLayout()
+        self.image_name_and_btn_layout.setSpacing(10)
+        self.image_name = QLabel(name)
+        self.image_name.setFixedWidth(buttonWidth - 60)
+        
+        self.delete_image_button = QPushButton("Delete")
+        self.delete_image_button.clicked.connect(self.delete_image)
+        self.delete_image_button.setStyleSheet("background-color: red")
+        self.delete_image_button.setFixedWidth(50)
+        
+        self.image_name_and_btn_layout.addWidget(self.image_name)
+        self.image_name_and_btn_layout.addWidget(self.delete_image_button)
+        
+        self.addLayout(self.image_name_and_btn_layout)
+
     @pyqtSlot()
-    def delete_image(self, file_path):
-        print(self)
+    def delete_image(self):
+        self.image.deleteLater()
+        self.image_name_and_btn_layout.deleteLater()
+        self.image_name.deleteLater()
+        self.delete_image_button.deleteLater()
+
+        self.image_deleted.emit(self.image_id)
         
