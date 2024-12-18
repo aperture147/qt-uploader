@@ -8,6 +8,7 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
 import os
 from uuid import uuid4
+from typing import Dict
 
 BLENDER_VERSION_LIST = [
     "2.79", "2.80", "2.81", "2.82", "2.83",
@@ -16,19 +17,82 @@ BLENDER_VERSION_LIST = [
 ]
 
 RENDER_ENGINE_LIST = [
-    "Cycles", "Eevee"
+    "Cycles", "Eevee", "RenderMan"
 ]
+
+
+class TooManyImageMessageBox(QMessageBox):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Too Many Images")
+        self.setText("You can only add 5 images at a time")
+        self.setIcon(QMessageBox.Icon.Warning)
+        self.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+class ImageItemWidget(QWidget):
+
+    image_deleted = pyqtSignal(str)
+
+    def __init__(self, file_path: str):
+        super().__init__()
+        
+        self.item_layout = QVBoxLayout()
+        
+        self.item_layout.setSpacing(10)
+
+        self.file_path = file_path
+        name = os.path.basename(file_path)
+        self.image_id = str(uuid4())
+
+        imagePixmap = QPixmap(file_path).scaledToHeight(200, Qt.TransformationMode.SmoothTransformation)
+        imageWidth = imagePixmap.width()
+        
+        self.setFixedHeight(250)
+        self.setFixedWidth(imageWidth + 40)
+        self.image = QLabel()
+        self.image.setPixmap(imagePixmap)
+
+        self.item_layout.addWidget(self.image)
+
+        self.image_name_and_btn_layout = QHBoxLayout()
+        self.image_name_and_btn_layout.setSpacing(10)
+        self.image_name = QLabel(name)
+        self.image_name.setFixedWidth(imageWidth - 60)
+        
+        self.delete_image_button = QPushButton("Delete")
+        self.delete_image_button.clicked.connect(self.delete_image)
+        self.delete_image_button.setStyleSheet("background-color: red")
+        self.delete_image_button.setFixedWidth(50)
+        
+        self.image_name_and_btn_layout.addWidget(self.image_name)
+        self.image_name_and_btn_layout.addWidget(self.delete_image_button)
+        
+        self.item_layout.addLayout(self.image_name_and_btn_layout)
+        self.setLayout(self.item_layout)
+
+    @pyqtSlot()
+    def delete_image(self):
+        self.image.deleteLater()
+        self.image_name_and_btn_layout.deleteLater()
+        self.image_name.deleteLater()
+        self.delete_image_button.deleteLater()
+        self.item_layout.deleteLater()
+
+        self.image_deleted.emit(self.image_id)
 
 class FileSelectDialog(QDialog):
     
-    image_dict = {}
+    image_dict: Dict[str, ImageItemWidget] = {}
+    # (filepath, category1, category2, category3, blender_version, render_engine, image_list)
+    fileSelected = pyqtSignal(str, str, str, str, str, str, list)
     
     def __init__(self):
         super().__init__()
+        self.image_dict.clear()
         self.setMinimumWidth(500)
         self.setWindowTitle("Select 3D Model File")
         buttonBoxFlag = (QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        
+        self.accepted.connect(self.handle_file_selected)
         self.buttonBox = QDialogButtonBox(buttonBoxFlag)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
@@ -37,14 +101,14 @@ class FileSelectDialog(QDialog):
         
         file_input_layout = QHBoxLayout()
         
-        self.file_path_label = QLineEdit()
-        self.file_path_label.setReadOnly(True)
-        self.file_path_label.setPlaceholderText("Click the 'Select File' button to select a file")
-        select_file_button = QPushButton("Select File")
-        select_file_button.setFixedWidth(100)
+        self.file_path_line_edit = QLineEdit()
+        self.file_path_line_edit.setReadOnly(True)
+        self.file_path_line_edit.setPlaceholderText("Click the 'Select File' button to select a file")
+        select_file_button = QPushButton("Select a 3D Model File")
+        select_file_button.setFixedWidth(150)
         select_file_button.clicked.connect(self.select_file)
         
-        file_input_layout.addWidget(self.file_path_label)
+        file_input_layout.addWidget(self.file_path_line_edit)
         file_input_layout.addWidget(select_file_button)
         
         mainLayout.addLayout(file_input_layout)
@@ -83,17 +147,17 @@ class FileSelectDialog(QDialog):
         
         blenderVersionLayout = QVBoxLayout()
         
-        self.blenderVersionDropDown = QComboBox()
-        self.blenderVersionDropDown.addItems(BLENDER_VERSION_LIST)
+        self.blender_version_drop_down = QComboBox()
+        self.blender_version_drop_down.addItems(BLENDER_VERSION_LIST)
         blenderVersionLayout.addWidget(QLabel("Blender Version"))
-        blenderVersionLayout.addWidget(self.blenderVersionDropDown)
+        blenderVersionLayout.addWidget(self.blender_version_drop_down)
 
         renderEngineLayout = QVBoxLayout()
         
-        self.renderEngineDropDown = QComboBox()
-        self.renderEngineDropDown.addItems(RENDER_ENGINE_LIST)
+        self.render_engine_drop_down = QComboBox()
+        self.render_engine_drop_down.addItems(RENDER_ENGINE_LIST)
         renderEngineLayout.addWidget(QLabel("Render Engine"))
-        renderEngineLayout.addWidget(self.renderEngineDropDown)
+        renderEngineLayout.addWidget(self.render_engine_drop_down)
         
         renderInfoLayout.addLayout(blenderVersionLayout)
         renderInfoLayout.addLayout(renderEngineLayout)
@@ -101,9 +165,9 @@ class FileSelectDialog(QDialog):
         imageInputLayout = QVBoxLayout()
         imageLabelAndAddImageButtonLayout = QHBoxLayout()
         
-        addImageButton = QPushButton("Add Image")
+        addImageButton = QPushButton("Add Preview Images")
         addImageButton.clicked.connect(self.add_images)
-        addImageButton.setFixedWidth(100)
+        addImageButton.setFixedWidth(150)
         imageLabelAndAddImageButtonLayout.addWidget(QLabel("Images"))
         imageLabelAndAddImageButtonLayout.addWidget(addImageButton)
         imageInputLayout.addLayout(imageLabelAndAddImageButtonLayout)
@@ -127,17 +191,27 @@ class FileSelectDialog(QDialog):
         
         self.setLayout(mainLayout)
     
-
+    @pyqtSlot()
+    def handle_file_selected(self):
+        self.fileSelected.emit(
+            self.file_path_line_edit.text(),
+            self.category_1_line_edit.text(),
+            self.category_2_line_edit.text(),
+            self.category_3_line_edit.text(),
+            self.blender_version_drop_down.currentText(),
+            self.render_engine_drop_down.currentText(),
+            [
+                x.file_path
+                for x in self.image_dict.values()
+            ]
+        )
+        
     @pyqtSlot()
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "3D Model Files (*.stl *.obj *.blend *.fbx);;Any Files (*)")
-        if len(self.image_dict) > 5:
-            tooManyImageMessageBox = TooManyImageMessageBox()
-            tooManyImageMessageBox.exec()
-            return
         
         if file_path:
-            self.file_path_label.setText(file_path)
+            self.file_path_line_edit.setText(file_path)
             *category_list, file_name = file_path.split(os.sep)
             self.file_name.setText(file_name)
 
@@ -146,6 +220,7 @@ class FileSelectDialog(QDialog):
                 self.category_2_line_edit,
                 self.category_3_line_edit
             ]
+            
             for i, category_line_edit in enumerate(category_line_edit_list):
                 try:
                     category_line_edit.setText(category_list.pop())
@@ -159,68 +234,24 @@ class FileSelectDialog(QDialog):
         file_list, _ = QFileDialog.getOpenFileNames(self, "Select Image Files", __file__, "Image Files (*.png *.jpg *.jpeg *.bmp *.webp);;Any Files (*)")
         if not file_list:
             return
+        
+        if (len(file_list) + len(self.image_dict)) > 5:
+            too_many_image_message_box = TooManyImageMessageBox()
+            too_many_image_message_box.exec()
+            return
+            
         for file_path in file_list:
-            image_item_layout = ImageItemLayout(file_path)
-            self.imageListLayout.addLayout(image_item_layout)
-            self.image_dict[image_item_layout.image_id] = image_item_layout
-            image_item_layout.image_deleted.connect(self.delete_image)
+            image_item_widget = ImageItemWidget(file_path)
+            
+            self.imageListLayout.addWidget(image_item_widget)
+            self.image_dict[image_item_widget.image_id] = image_item_widget
+            image_item_widget.image_deleted.connect(self.delete_image)
 
     @pyqtSlot(str)
     def delete_image(self, image_id):
-        image_item_layout: ImageItemLayout = self.image_dict.pop(image_id, None)
-        if image_item_layout:
-            self.imageListLayout.removeItem(image_item_layout)
-            image_item_layout.deleteLater()
+        image_item_widget: QWidget = self.image_dict.pop(image_id, None)
+        if image_item_widget:
+            self.imageListLayout.removeWidget(image_item_widget)
+            image_item_widget.deleteLater()
 
-class TooManyImageMessageBox(QMessageBox):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Too Many Images")
-        self.setText("You can only add 5 images at a time")
-        self.setIcon(QMessageBox.Icon.Warning)
-        self.setStandardButtons(QMessageBox.StandardButton.Ok)
-
-class ImageItemLayout(QVBoxLayout):
-
-    image_deleted = pyqtSignal(str)
-
-    def __init__(self, file_path: str):
-        super().__init__()
-        self.setSpacing(10)
-
-        self.file_path = file_path
-        name = os.path.basename(file_path)
-        self.image_id = str(uuid4())
-
-        imagePixmap = QPixmap(file_path).scaledToHeight(200, Qt.TransformationMode.SmoothTransformation)
-        buttonWidth = imagePixmap.width()
-
-        self.image = QLabel()
-        self.image.setPixmap(imagePixmap)
-
-        self.addWidget(self.image)
-
-        self.image_name_and_btn_layout = QHBoxLayout()
-        self.image_name_and_btn_layout.setSpacing(10)
-        self.image_name = QLabel(name)
-        self.image_name.setFixedWidth(buttonWidth - 60)
-        
-        self.delete_image_button = QPushButton("Delete")
-        self.delete_image_button.clicked.connect(self.delete_image)
-        self.delete_image_button.setStyleSheet("background-color: red")
-        self.delete_image_button.setFixedWidth(50)
-        
-        self.image_name_and_btn_layout.addWidget(self.image_name)
-        self.image_name_and_btn_layout.addWidget(self.delete_image_button)
-        
-        self.addLayout(self.image_name_and_btn_layout)
-
-    @pyqtSlot()
-    def delete_image(self):
-        self.image.deleteLater()
-        self.image_name_and_btn_layout.deleteLater()
-        self.image_name.deleteLater()
-        self.delete_image_button.deleteLater()
-
-        self.image_deleted.emit(self.image_id)
         
