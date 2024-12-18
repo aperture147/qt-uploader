@@ -84,7 +84,7 @@ class FileSelectDialog(QDialog):
     
     image_dict: Dict[str, ImageItemWidget] = {}
     # (filepath, category1, category2, category3, blender_version, render_engine, image_list)
-    fileSelected = pyqtSignal(str, str, str, str, str, str, list)
+    file_selected = pyqtSignal(str, str, str, str, str, str, list)
     
     def __init__(self):
         super().__init__()
@@ -193,7 +193,7 @@ class FileSelectDialog(QDialog):
     
     @pyqtSlot()
     def handle_file_selected(self):
-        self.fileSelected.emit(
+        self.file_selected.emit(
             self.file_path_line_edit.text(),
             self.category_1_line_edit.text(),
             self.category_2_line_edit.text(),
