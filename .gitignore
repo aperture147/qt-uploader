@@ -923,3 +923,5 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/qt,linux,macos,python,windows,virtualenv,pycharm+all,jetbrains+all,pythonvanilla,visualstudiocode,qtcreator,visualstudio
+
+*.sqlite3
