@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QThreadPool, QRunnable, pyqtSlot
+from PyQt6.QtCore import QRunnable, pyqtSlot
 
 class GoogleDriveUploadWorker(QRunnable):
     def __init__(self, file_path: str):

@@ -26,7 +26,15 @@ class TooManyImageMessageBox(QMessageBox):
         super().__init__()
         self.setWindowTitle("Too Many Images")
         self.setText("You can only add 5 images at a time")
-        self.setIcon(QMessageBox.Icon.Warning)
+        self.setIcon(QMessageBox.Icon.Critical)
+        self.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+class RequireFieldsNotFulfilledMessageBox(QMessageBox):
+    def __init__(self, required_field_list: list):
+        super().__init__()
+        self.setWindowTitle("Required Fields Not Fulfilled")
+        self.setText(f"Please fill in all these required fields: {', '.join(required_field_list)}")
+        self.setIcon(QMessageBox.Icon.Critical)
         self.setStandardButtons(QMessageBox.StandardButton.Ok)
 
 class ImageItemWidget(QWidget):
@@ -83,8 +91,8 @@ class ImageItemWidget(QWidget):
 class FileSelectDialog(QDialog):
     
     image_dict: Dict[str, ImageItemWidget] = {}
-    # (filepath, category1, category2, category3, blender_version, render_engine, image_list)
-    file_selected = pyqtSignal(str, str, str, str, str, str, list)
+    # (filepath, file_name, category1, category2, category3, blender_version, render_engine, image_list)
+    file_selected = pyqtSignal(str, str, str, str, str, str, str, list)
     
     def __init__(self):
         super().__init__()
@@ -93,11 +101,12 @@ class FileSelectDialog(QDialog):
         self.setWindowTitle("Select 3D Model File")
         buttonBoxFlag = (QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.accepted.connect(self.handle_file_selected)
-        self.buttonBox = QDialogButtonBox(buttonBoxFlag)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
         
-        mainLayout = QVBoxLayout()
+        self.button_box_widget = QDialogButtonBox(buttonBoxFlag)
+        self.button_box_widget.accepted.connect(self.accept)
+        self.button_box_widget.rejected.connect(self.reject)
+        
+        main_layout = QVBoxLayout()
         
         file_input_layout = QHBoxLayout()
         
@@ -110,67 +119,87 @@ class FileSelectDialog(QDialog):
         
         file_input_layout.addWidget(self.file_path_line_edit)
         file_input_layout.addWidget(select_file_button)
+        file_input_widget = QWidget()
+        file_input_widget.setLayout(file_input_layout)
+        main_layout.addWidget(file_input_widget)
         
-        mainLayout.addLayout(file_input_layout)
+        file_name_input_layout = QVBoxLayout()
         
-        self.file_name = QLineEdit()
-        self.file_name.setPlaceholderText("File Name")
-        mainLayout.addWidget(self.file_name)
+        file_name_input_layout.addWidget(QLabel("File Name"))
+        self.file_name_line_edit = QLineEdit()
+        self.file_name_line_edit.setPlaceholderText("File Name")
+        file_name_input_layout.addWidget(self.file_name_line_edit)
+        file_name_input_widget = QWidget()
+        file_name_input_widget.setLayout(file_name_input_layout)
+        
+        main_layout.addWidget(file_name_input_widget)
 
-        categoryLayout = QHBoxLayout()
+        category_layout = QHBoxLayout()
         
         category_1_layout = QVBoxLayout()
         self.category_1_line_edit = QLineEdit()
         self.category_1_line_edit.setPlaceholderText("Category 1")
         category_1_layout.addWidget(QLabel("Category 1"))
         category_1_layout.addWidget(self.category_1_line_edit)
+        category_1_widget = QWidget()
+        category_1_widget.setLayout(category_1_layout)
+        category_layout.addWidget(category_1_widget)
         
         category_2_layout = QVBoxLayout()
         self.category_2_line_edit = QLineEdit()
         self.category_2_line_edit.setPlaceholderText("Category 2")
         category_2_layout.addWidget(QLabel("Category 2"))
         category_2_layout.addWidget(self.category_2_line_edit)
+        category_2_widget = QWidget()
+        category_2_widget.setLayout(category_2_layout)
+        category_layout.addWidget(category_2_widget)
         
         category_3_layout = QVBoxLayout()
         self.category_3_line_edit = QLineEdit()
         category_3_layout.addWidget(QLabel("Category 3"))
         self.category_3_line_edit.setPlaceholderText("Category 3")
         category_3_layout.addWidget(self.category_3_line_edit)
+        category_3_widget = QWidget()
+        category_3_widget.setLayout(category_3_layout)
+        category_layout.addWidget(category_3_widget)
         
-        categoryLayout.addLayout(category_1_layout)
-        categoryLayout.addLayout(category_2_layout)
-        categoryLayout.addLayout(category_3_layout)
+        category_widget = QWidget()
+        category_widget.setLayout(category_layout)
 
-        mainLayout.addLayout(categoryLayout)
+        main_layout.addWidget(category_widget)
         
-        renderInfoLayout = QHBoxLayout()
-        
-        blenderVersionLayout = QVBoxLayout()
-        
+        render_info_layout = QHBoxLayout()
+
+        blender_version_layout = QVBoxLayout()        
         self.blender_version_drop_down = QComboBox()
         self.blender_version_drop_down.addItems(BLENDER_VERSION_LIST)
-        blenderVersionLayout.addWidget(QLabel("Blender Version"))
-        blenderVersionLayout.addWidget(self.blender_version_drop_down)
+        blender_version_layout.addWidget(QLabel("Blender Version"))
+        blender_version_layout.addWidget(self.blender_version_drop_down)
+        blender_version_widget = QWidget()
+        blender_version_widget.setLayout(blender_version_layout)
+        render_info_layout.addWidget(blender_version_widget)
 
-        renderEngineLayout = QVBoxLayout()
+        render_engine_layout = QVBoxLayout()
         
         self.render_engine_drop_down = QComboBox()
         self.render_engine_drop_down.addItems(RENDER_ENGINE_LIST)
-        renderEngineLayout.addWidget(QLabel("Render Engine"))
-        renderEngineLayout.addWidget(self.render_engine_drop_down)
+        render_engine_layout.addWidget(QLabel("Render Engine"))
+        render_engine_layout.addWidget(self.render_engine_drop_down)
+        render_engine_widget = QWidget()
+        render_engine_widget.setLayout(render_engine_layout)
+        render_info_layout.addWidget(render_engine_widget)
         
-        renderInfoLayout.addLayout(blenderVersionLayout)
-        renderInfoLayout.addLayout(renderEngineLayout)
+        image_input_layout = QVBoxLayout()
         
-        imageInputLayout = QVBoxLayout()
-        imageLabelAndAddImageButtonLayout = QHBoxLayout()
-        
-        addImageButton = QPushButton("Add Preview Images")
-        addImageButton.clicked.connect(self.add_images)
-        addImageButton.setFixedWidth(150)
-        imageLabelAndAddImageButtonLayout.addWidget(QLabel("Images"))
-        imageLabelAndAddImageButtonLayout.addWidget(addImageButton)
-        imageInputLayout.addLayout(imageLabelAndAddImageButtonLayout)
+        img_label_and_add_image_btn_layout = QHBoxLayout()
+        add_image_button = QPushButton("Add Preview Images")
+        add_image_button.clicked.connect(self.add_images)
+        add_image_button.setFixedWidth(150)
+        img_label_and_add_image_btn_layout.addWidget(QLabel("Images"))
+        img_label_and_add_image_btn_layout.addWidget(add_image_button)
+        img_label_and_add_image_btn_widget = QWidget()
+        img_label_and_add_image_btn_widget.setLayout(img_label_and_add_image_btn_layout)
+        image_input_layout.addWidget(img_label_and_add_image_btn_widget)
         
         self.imageListLayout = QHBoxLayout()
 
@@ -183,18 +212,59 @@ class FileSelectDialog(QDialog):
         imageScrollArea.setWidgetResizable(True)
         imageScrollArea.setWidget(imageScrollWidget)
         
-        imageInputLayout.addWidget(imageScrollArea)
+        image_input_layout.addWidget(imageScrollArea)
         
-        mainLayout.addLayout(renderInfoLayout)
-        mainLayout.addLayout(imageInputLayout)
-        mainLayout.addWidget(self.buttonBox)
+        render_info_widget = QWidget()
+        render_info_widget.setLayout(render_info_layout)
+        main_layout.addWidget(render_info_widget)
         
-        self.setLayout(mainLayout)
+        image_input_widget = QWidget()
+        image_input_widget.setLayout(image_input_layout)
+        main_layout.addWidget(image_input_widget)
+        
+        main_layout.addWidget(self.button_box_widget)
+        
+        self.setLayout(main_layout)
     
+    def check_and_accept(self):
+        missed_input = []
+        
+        if not self.file_path_line_edit.text():
+            missed_input.append("File Path")
+        
+        if not self.file_name_line_edit.text():
+            missed_input.append("File Name")
+            
+        if not self.category_1_line_edit.text():
+            missed_input.append("Category 1")
+        
+        if not self.category_2_line_edit.text():
+            missed_input.append("Category 2")
+            
+        if not self.category_3_line_edit.text():
+            missed_input.append("Category 3")
+            
+        if not self.blender_version_drop_down.currentText():
+            missed_input.append("Blender Version")
+            
+        if not self.render_engine_drop_down.currentText():
+            missed_input.append("Render Engine")
+            
+        if len(self.image_dict) < 3:
+            missed_input.append("Image Files (need at least 3)")
+        
+        if missed_input:
+            msg_box = RequireFieldsNotFulfilledMessageBox(missed_input)
+            msg_box.exec()
+            return
+        
+        self.accept()
+        
     @pyqtSlot()
     def handle_file_selected(self):
         self.file_selected.emit(
             self.file_path_line_edit.text(),
+            self.file_name_line_edit.text(),
             self.category_1_line_edit.text(),
             self.category_2_line_edit.text(),
             self.category_3_line_edit.text(),
@@ -205,7 +275,8 @@ class FileSelectDialog(QDialog):
                 for x in self.image_dict.values()
             ]
         )
-        
+    
+    
     @pyqtSlot()
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "3D Model Files (*.stl *.obj *.blend *.fbx);;Any Files (*)")
@@ -213,15 +284,13 @@ class FileSelectDialog(QDialog):
         if file_path:
             self.file_path_line_edit.setText(file_path)
             *category_list, file_name = file_path.split(os.sep)
-            self.file_name.setText(file_name)
-
-            category_line_edit_list = [
+            self.file_path_line_edit.setText(os.path.splitext(file_name)[0])
+            
+            for i, category_line_edit in enumerate([
                 self.category_1_line_edit,
                 self.category_2_line_edit,
                 self.category_3_line_edit
-            ]
-            
-            for i, category_line_edit in enumerate(category_line_edit_list):
+            ]):
                 try:
                     category_line_edit.setText(category_list.pop())
                 except IndexError:
@@ -253,5 +322,3 @@ class FileSelectDialog(QDialog):
         if image_item_widget:
             self.imageListLayout.removeWidget(image_item_widget)
             image_item_widget.deleteLater()
-
-        

@@ -10,7 +10,7 @@ from PyQt6.QtCore import QThreadPool, pyqtSlot
 
 from widget import FileSelectDialog, FileListWidget, FileListWidgetItem
 
-from worker import S3UploadWorker, GoogleDriveUploadWorker
+from worker import S3UploadWorker
 
 class MainWindow(QMainWindow):
 
@@ -21,7 +21,7 @@ class MainWindow(QMainWindow):
         self.google_drive_upload_threadpool = QThreadPool()
 
         self.setWindowTitle("R2 Google Drive Uploader")
-        self.setMinimumSize(480, 640)
+        self.setMinimumSize(820, 640)
         main_layout = QVBoxLayout()
         
         new_3d_file_btn = QPushButton("Upload new 3D File")
@@ -44,23 +44,23 @@ class MainWindow(QMainWindow):
         dlg.file_selected.connect(self.create_new_upload_task)
         dlg.exec()
 
-    @pyqtSlot(str, str, str, str, str, str, list)
+    @pyqtSlot(str, str, str, str, str, str, str, list)
     def create_new_upload_task(
         self,
         file_path: str,
+        file_name: str,
         category1: str,
         category2: str,
         category3: str,
         blender_version: str,
         render_engine: str,
         image_list: list
-    ):  
-        
+    ):
         task_item = FileListWidgetItem(file_path)
         self.file_list.add_item(task_item)
 
         s3_upload_worker = S3UploadWorker(
-            file_path,
+            file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list
