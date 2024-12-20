@@ -1,8 +1,8 @@
-PyQt6
-boto3
-python-ulid
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
-PyInstaller
-pyinstaller-hooks-contrib
+PyQt6==6.8.0
+boto3==1.35.85
+python-ulid==3.0.0
+google-api-python-client==2.156.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+PyInstaller==6.11.1
+pyinstaller-hooks-contrib==2024.10
