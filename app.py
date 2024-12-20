@@ -1,6 +1,4 @@
 import sys
-from typing import Any
-import json
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
@@ -8,8 +6,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QThreadPool, pyqtSlot
 
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+
 from widget import FileSelectDialog, FileListWidget, FileListWidgetItem, GoogleLoginMessageBox
-from worker import S3UploadWorker
+from worker import S3UploadWorker, GoogleDriveUploadWorker
 from db import QtDBObject
 
 class MainWindow(QMainWindow):
@@ -18,8 +19,7 @@ class MainWindow(QMainWindow):
         self.db = QtDBObject()
         
     def init_threadpool(self):
-        self.s3_upload_threadpool = QThreadPool()
-        self.google_drive_upload_threadpool = QThreadPool()
+        self.upload_threadpool = QThreadPool()
     
     def init_ui(self):
         self.setWindowTitle("R2 Google Drive Uploader")
@@ -30,8 +30,9 @@ class MainWindow(QMainWindow):
         new_3d_file_btn.clicked.connect(self.upload_new_3d_file)
         main_layout.addWidget(new_3d_file_btn)
         
-        google_login_btn = QPushButton("Google Login")
+        google_login_btn = QPushButton("Google Drive Login")
         google_login_btn.clicked.connect(self.google_login)
+        google_login_btn.setEnabled(False)
         main_layout.addWidget(google_login_btn)
         
         self.file_list = FileListWidget()
@@ -43,20 +44,62 @@ class MainWindow(QMainWindow):
         
         self.file_select_dialog = FileSelectDialog()
         self.file_select_dialog.file_selected.connect(self.create_new_upload_task)
+
+        google_oauth_token = self.db.get_config('google_oauth_token')
+        self.google_oauth_credentials = None
+
+        if not google_oauth_token:
+            google_login_btn.setEnabled(True)
+            return
         
-    
+        self.google_oauth_credentials = Credentials.from_authorized_user_info(google_oauth_token)
+        if self.google_oauth_credentials.valid:
+            google_login_btn.setText("Google Drive Logged In")
+            return
+        
+        if not self.google_oauth_credentials.refresh_token:
+            google_login_btn.setEnabled(True)
+            return
+        
+        self.google_oauth_credentials.refresh(Request())
+        if self.google_oauth_credentials.valid:
+            google_login_btn.setText("Google Drive Logged In")
+            return
+        
+        google_login_btn.setEnabled(True)
+            
+    def init_file_list(self):
+        file_list = self.db.list_files()
+        for file_id, name, path, \
+            blender_version, render_engine, \
+            category1, category2, category3, \
+            image_list, status, progress, message in file_list:
+            task_item = FileListWidgetItem(name, status, progress, message)
+            if status == "finished":
+                self.file_list.add_item(task_item)
+                continue
+
+            if file_id in self.running_task_dict:
+                s3_upload_worker: S3UploadWorker = self.running_task_dict[file_id]
+                s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
+                s3_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
+                
+                s3_upload_worker.signals.status.connect(task_item.set_status)
+                s3_upload_worker.signals.status.connect(self.db.set_file_status)
+                
+                self.file_list.add_item(task_item)
+
     def init_running_task_dict(self):
         self.running_task_dict = {}
     
     def google_login(self):
         dlg = GoogleLoginMessageBox()
-        dlg.signals.credential.connect(self.save_google_token)
+        dlg.signals.credentials.connect(self.save_google_token)
         dlg.exec()
     
     @pyqtSlot(dict)
-    def save_google_token(self, credential: dict):
-        self.db.save_config('google_oauth_token', credential)
-        
+    def save_google_token(self, credentials: dict):
+        self.db.save_config('google_oauth_token', credentials)
     
     @pyqtSlot()
     def upload_new_3d_file(self):
@@ -84,7 +127,7 @@ class MainWindow(QMainWindow):
             image_list
         )
         
-        self.running_task_dict[s3_upload_worker.file_id] = task_item
+        self.running_task_dict[s3_upload_worker.file_id] = s3_upload_worker
         self.db.create_file(
             s3_upload_worker.file_id, file_path, file_name,
             category1, category2, category3,
@@ -98,7 +141,27 @@ class MainWindow(QMainWindow):
         s3_upload_worker.signals.status.connect(task_item.set_status)
         s3_upload_worker.signals.status.connect(self.db.set_file_status)
         
-        self.s3_upload_threadpool.start(s3_upload_worker)
+        self.upload_threadpool.start(s3_upload_worker)
+
+        if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
+            print("Credential is invalid, upload to Google Drive skipped")
+            return
+
+        google_drive_upload_worker = GoogleDriveUploadWorker(
+            file_path, file_name,
+            category1, category2, category3,
+            blender_version, render_engine,
+            image_list,
+            self.google_oauth_credentials
+        )
+
+        google_drive_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
+        google_drive_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
+        
+        google_drive_upload_worker.signals.status.connect(task_item.set_status)
+        google_drive_upload_worker.signals.status.connect(self.db.set_file_status)
+
+        self.upload_threadpool.start(google_drive_upload_worker)
         
     
     def __init__(self):
@@ -108,6 +171,7 @@ class MainWindow(QMainWindow):
         self.init_running_task_dict()
         self.init_threadpool()
         self.init_ui()
+        self.init_file_list()
         
 def main():
     app = QApplication(sys.argv)
