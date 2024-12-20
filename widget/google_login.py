@@ -7,6 +7,17 @@ from PyQt6.QtCore import pyqtSlot, QThread, pyqtSignal, QObject, QDeadlineTimer
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 CLIENT_CONFIG = {
+    "installed": {
+        "client_id": "1032794322434-6muavbv0khohaoo29qv73lf4adt99s0k.apps.googleusercontent.com",
+        "project_id": "aperture-445207",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "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",
+        "redirect_uris": [
+            "http://localhost"
+        ]
+    }
 }
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
@@ -38,7 +49,7 @@ class GoogleLoginWorker(QObject):
             self.signals.finished.emit()
 
 class GoogleLoginSignal(QObject):
-    credential = pyqtSignal(dict)
+    credentials = pyqtSignal(dict)
     finished = pyqtSignal()
 
 class GoogleLoginMessageBox(QMessageBox):
@@ -48,7 +59,7 @@ class GoogleLoginMessageBox(QMessageBox):
         
         self.signals = GoogleLoginSignal()
         
-        self.setWindowTitle("Google Login")
+        self.setWindowTitle("Google Drive Login")
         self.setText("Please complete the login process on your browser. This window will close automatically after you have logged in.")
         self.setIcon(QMessageBox.Icon.Information)
         
@@ -66,7 +77,7 @@ class GoogleLoginMessageBox(QMessageBox):
         self.worker_thread.started.connect(self.worker.run)
         self.worker.signals.finished.connect(end_worker_thread)
         
-        self.worker.signals.result.connect(self.signals.credential.emit)
+        self.worker.signals.result.connect(self.signals.credentials.emit)
         self.worker.signals.result.connect(lambda x: self.accept())
         
         self.worker.signals.error.connect(self.reject)
