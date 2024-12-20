@@ -1,7 +1,7 @@
 from sqlite3 import connect
 from contextlib import closing
 import json
-from typing import Any
+from typing import Any, Generator
 
 from PyQt6.QtCore import pyqtSlot, QObject
 from ulid import ULID
@@ -42,7 +42,7 @@ class QtDBObject(QObject):
     def __del__(self):
         self.conn.close()
     
-    def list_files(self):
+    def list_files(self) -> Generator[tuple[ULID, str, str, str, str, str, str, str, list[str], str, str, str], None, None]:
         with closing(self.conn.cursor()) as cur:
             cur.execute("""
                 SELECT
@@ -53,11 +53,11 @@ class QtDBObject(QObject):
                     task_status, task_progress, task_message
                 FROM file
             """)
-            for file_id, *cols, image_list in cur.fetchall():
-                yield (ULID(value=file_id), *cols, json.loads(image_list))
+            for file_id, *cols, image_list, status, progress, message in cur.fetchall():
+                yield (ULID(value=file_id), *cols, json.loads(image_list), status, progress, message)
     
-    @pyqtSlot(str, Any)
-    def save_config(self, key: str, value: Any):
+    @pyqtSlot(str, dict)
+    def save_config(self, key: str, value: dict):
         with closing(self.conn.cursor()) as cur:
             cur.execute("""
                 INSERT INTO config
@@ -67,6 +67,18 @@ class QtDBObject(QObject):
             """, (key, json.dumps(value), json.dumps(value)))
             self.conn.commit()
     
+    def get_config(self, key: str) -> Any:
+        with closing(self.conn.cursor()) as cur:
+            cur.execute("""
+                SELECT value
+                FROM config
+                WHERE key = ?
+                LIMIT 1
+            """, (key,))
+            if not cur.rowcount:
+                return None
+            return json.loads(cur.fetchone()[0])
+
     @pyqtSlot(ULID, str, str, str, str, str, str, str, list)
     def create_file(
         self,
