@@ -1,15 +1,12 @@
 import sys
 
-
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
     QVBoxLayout, QWidget
 )
-
 from PyQt6.QtCore import QThreadPool, pyqtSlot
 
 from widget import FileSelectDialog, FileListWidget, FileListWidgetItem
-
 from worker import S3UploadWorker
 
 class MainWindow(QMainWindow):
@@ -56,7 +53,7 @@ class MainWindow(QMainWindow):
         render_engine: str,
         image_list: list
     ):
-        task_item = FileListWidgetItem(file_path)
+        task_item = FileListWidgetItem(file_name)
         self.file_list.add_item(task_item)
 
         s3_upload_worker = S3UploadWorker(
@@ -66,9 +63,11 @@ class MainWindow(QMainWindow):
             image_list
         )
         s3_upload_worker.signals.progress_status.connect(task_item.update_progress_status)
+        s3_upload_worker.signals.finished.connect(task_item.set_completed)
+        s3_upload_worker.signals.error.connect(task_item.set_failed)
+
         self.s3_upload_threadpool.start(s3_upload_worker)
-        
-        
+
 def main():
     app = QApplication(sys.argv)
     main_gui = MainWindow()

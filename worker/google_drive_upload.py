@@ -1,10 +1,8 @@
 from PyQt6.QtCore import QRunnable, pyqtSlot
 
-class GoogleDriveUploadWorker(QRunnable):
-    def __init__(self, file_path: str):
-        super().__init__()
-        self.file_path = file_path
-    
+from ._upload_base import _BaseUploadWorker
+
+class GoogleDriveUploadWorker(_BaseUploadWorker):
     @pyqtSlot()
     def run(self):
         print(f"Uploading {self.file_path} to Google Drive")

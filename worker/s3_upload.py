@@ -1,12 +1,12 @@
 import os
 import traceback
 import sys
-import re
 
 import boto3
-from PyQt6.QtCore import QRunnable, pyqtSlot
 
-from ._signal import WorkerSignals
+from PyQt6.QtCore import pyqtSlot
+
+from ._upload_base import _BaseUploadWorker
 
 s3_client = boto3.client(
     "s3",
@@ -18,31 +18,7 @@ s3_client = boto3.client(
 FILE_NAME_REGEX = r'[^\w_. -]'
 MODEL_FILE_UPLOAD_PROGRESS_RATIO = 0.7
 
-class S3UploadWorker(QRunnable):
-    def __init__(
-            self,
-            file_path: str,
-            file_name: str,
-            category1: str,
-            category2: str,
-            category3: str,
-            blender_version: str,
-            render_engine: str,
-            image_list: list
-        ):
-        super().__init__()
-        
-        self.file_path = file_path
-        self.file_name = re.sub(FILE_NAME_REGEX, '_', file_name)
-        self.category1 = category1
-        self.category2 = category2
-        self.category3 = category3
-        self.blender_version = blender_version
-        self.render_engine = render_engine
-        self.image_list = image_list
-
-        self.signals = WorkerSignals()
-    
+class S3UploadWorker(_BaseUploadWorker):
     @pyqtSlot()
     def run(self):
         try:
@@ -101,7 +77,9 @@ class S3UploadWorker(QRunnable):
                 )
             
             self.signals.progress_status.emit(100, "All uploaded to S3")
+
             self.signals.finished.emit()
+            
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
