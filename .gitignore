@@ -924,4 +924,4 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/qt,linux,macos,python,windows,virtualenv,pycharm+all,jetbrains+all,pythonvanilla,visualstudiocode,qtcreator,visualstudio
 
-*.sqlite3
+*.sqlite3*

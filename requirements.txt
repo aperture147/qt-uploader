@@ -1,7 +1,8 @@
 PyQt6
 boto3
 python-ulid
-SQLAlchemy
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+PyInstaller
+pyinstaller-hooks-contrib
