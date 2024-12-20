@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
 import os
-from uuid import uuid4
+from ulid import ULID
 from typing import Dict
 
 BLENDER_VERSION_LIST = [
@@ -19,7 +19,6 @@ BLENDER_VERSION_LIST = [
 RENDER_ENGINE_LIST = [
     "Cycles", "Eevee", "RenderMan"
 ]
-
 
 class TooManyImageMessageBox(QMessageBox):
     def __init__(self):
@@ -50,7 +49,7 @@ class ImageItemWidget(QWidget):
 
         self.file_path = file_path
         name = os.path.basename(file_path)
-        self.image_id = str(uuid4())
+        self.image_id = str(ULID())
 
         imagePixmap = QPixmap(file_path).scaledToHeight(200, Qt.TransformationMode.SmoothTransformation)
         imageWidth = imagePixmap.width()

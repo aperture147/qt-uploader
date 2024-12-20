@@ -22,7 +22,8 @@ class S3UploadWorker(_BaseUploadWorker):
     @pyqtSlot()
     def run(self):
         try:
-            self.signals.progress_status.emit(1, "Uploading to S3")
+            self.signals.status.emit(self.file_id, "Uploading")
+            self.signals.progress_message.emit(self.file_id, 1, "Uploading to S3")
             orig_file_name = os.path.basename(self.file_path)
             _, ext = os.path.splitext(self.file_path)
             object_key = os.path.join(
@@ -37,7 +38,8 @@ class S3UploadWorker(_BaseUploadWorker):
             
             def upload_progress(transfered):
                 progress = int(transfered / file_size * 100)
-                self.signals.progress_status.emit(
+                self.signals.progress_message.emit(
+                    self.file_id,
                     progress * MODEL_FILE_UPLOAD_PROGRESS_RATIO,
                     f"Uploading {orig_file_name}: {progress}%"
                 )
@@ -49,14 +51,19 @@ class S3UploadWorker(_BaseUploadWorker):
                 Callback=upload_progress
             )
             
-            self.signals.progress_status.emit(full_3d_model_progress, "Uploading images to S3")
+            self.signals.progress_message.emit(
+                self.file_id,
+                full_3d_model_progress,
+                "Uploading images to S3"
+            )
             
             image_count = len(self.image_list)
             for i, image_path in enumerate(self.image_list):
                 fs_image_file_name = os.path.basename(image_path)
                 image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}.{os.path.splitext(fs_image_file_name)[1]}'
                 
-                self.signals.progress_status.emit(
+                self.signals.progress_message.emit(
+                    self.file_id,
                     full_3d_model_progress + (i * 29 / image_count),
                     f"Uploaded image {fs_image_file_name}"
                 )
@@ -71,19 +78,23 @@ class S3UploadWorker(_BaseUploadWorker):
                     Bucket="test-bucket",
                     Key=image_key
                 )
-                self.signals.progress_status.emit(
+                self.signals.progress_message.emit(
+                    self.file_id,
                     full_3d_model_progress + ((i + 1) * 29 / image_count),
                     f"Uploaded image {fs_image_file_name} as {image_file_name}"
                 )
             
-            self.signals.progress_status.emit(100, "All uploaded to S3")
-
-            self.signals.finished.emit()
-            
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-            self.signals.progress_status.emit(0, "Failed to upload data to S3")
+            self.signals.status.emit(self.file_id, "error")
+            self.signals.error.emit(self.file_id, (exctype, value, traceback.format_exc()))
+            self.signals.progress_message.emit(self.file_id, 0, "Failed to upload data to S3")
+        else:
+            self.signals.progress_message.emit(self.file_id, 100, "All uploaded to S3")
+            self.signals.status.emit(self.file_id, "finished")
+        finally:
+            self.signals.finished.emit()
+        
             
             

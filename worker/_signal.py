@@ -1,6 +1,8 @@
 from PyQt6.QtCore import QObject, pyqtSignal
+from ulid import ULID
 
 class WorkerSignals(QObject):
     finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    progress_status = pyqtSignal(int, str)
+    error = pyqtSignal(ULID, tuple)
+    status = pyqtSignal(ULID, str)
+    progress_message = pyqtSignal(ULID, int, str)

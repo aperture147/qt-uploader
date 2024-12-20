@@ -2,6 +2,7 @@ FILE_NAME_REGEX = r'[^\w_. -]'
 import re
 
 from PyQt6.QtCore import QRunnable
+from ulid import ULID
 
 from ._signal import WorkerSignals
 
@@ -21,6 +22,7 @@ class _BaseUploadWorker(QRunnable):
         ):
         super().__init__()
         
+        self.file_id = ULID()
         self.file_path = file_path
         self.file_name = re.sub(FILE_NAME_REGEX, '_', file_name)
         self.category1 = re.sub(FILE_NAME_REGEX, '_', category1)
