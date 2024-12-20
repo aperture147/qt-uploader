@@ -1,1 +1,1 @@
-from ._connection import conn
+from ._connection import QtDBObject
