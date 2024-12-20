@@ -75,7 +75,7 @@ class QtDBObject(QObject):
                 WHERE key = ?
                 LIMIT 1
             """, (key,))
-            if not cur.rowcount:
+            if cur.rowcount <= 0:
                 return None
             return json.loads(cur.fetchone()[0])
 
