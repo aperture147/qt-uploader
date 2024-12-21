@@ -52,6 +52,7 @@ class QtDBObject(QObject):
                     image_list,
                     task_status, task_progress, task_message
                 FROM file
+                ORDER BY id DESC
             """)
             for file_id, *cols, image_list, status, progress, message in cur.fetchall():
                 yield (ULID(value=file_id), *cols, json.loads(image_list), status, progress, message)
@@ -75,9 +76,10 @@ class QtDBObject(QObject):
                 WHERE key = ?
                 LIMIT 1
             """, (key,))
-            if cur.rowcount <= 0:
+            credentials = cur.fetchone()
+            if not credentials:
                 return None
-            return json.loads(cur.fetchone()[0])
+            return json.loads(credentials[0])
 
     @pyqtSlot(ULID, str, str, str, str, str, str, str, list)
     def create_file(
