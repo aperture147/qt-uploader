@@ -20,7 +20,10 @@ CLIENT_CONFIG = {
     }
 }
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+SCOPES = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets"
+]
 
 class GoogleLoginWorkerSignals(QObject):
     error = pyqtSignal(tuple)
