@@ -10,11 +10,11 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaFileUpload
 
 from ._upload_base import (
-    _BaseUploadWorker,
+    _BaseWorker,
     FULL_3D_MODEL_PROGRESS
 )
 
-class GoogleDriveUploadWorker(_BaseUploadWorker):
+class GoogleDriveUploadWorker(_BaseWorker):
     def __init__(
             self,
             file_path: str,

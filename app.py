@@ -2,14 +2,17 @@ import sys
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
-    QVBoxLayout, QWidget
+    QVBoxLayout, QHBoxLayout, QWidget
 )
 from PyQt6.QtCore import QThreadPool, pyqtSlot
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
-from widget import FileSelectDialog, FileListWidget, FileListWidgetItem, GoogleLoginMessageBox
+from widget import (
+    FileSelectDialog, FileListWidget, FileListWidgetItem,
+    GoogleLoginMessageBox, GoogleSheetMessageBox
+)
 from worker import S3UploadWorker, GoogleDriveUploadWorker
 from db import QtDBObject
 
@@ -26,14 +29,26 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(820, 640)
         main_layout = QVBoxLayout()
         
+        google_btn_layout = QHBoxLayout()
+        google_btn_layout.setContentsMargins(0, 0, 0, 0)
+
         new_3d_file_btn = QPushButton("Upload new 3D File")
         new_3d_file_btn.clicked.connect(self.upload_new_3d_file)
-        main_layout.addWidget(new_3d_file_btn)
-        
-        google_login_btn = QPushButton("Google Drive Login")
-        google_login_btn.clicked.connect(self.google_login)
-        google_login_btn.setEnabled(False)
-        main_layout.addWidget(google_login_btn)
+        google_btn_layout.addWidget(new_3d_file_btn)
+
+        self.google_login_btn = QPushButton("Google Drive Login")
+        self.google_login_btn.clicked.connect(self.google_login)
+        self.google_login_btn.setEnabled(False)
+        google_btn_layout.addWidget(self.google_login_btn)
+
+        google_sheet_btn = QPushButton("Google Sheet Link")
+        google_sheet_btn.clicked.connect(self.google_sheet)
+        google_btn_layout.addWidget(google_sheet_btn)
+
+        google_btn_widget = QWidget()
+        google_btn_widget.setLayout(google_btn_layout)
+
+        main_layout.addWidget(google_btn_widget)
         
         self.file_list = FileListWidget()
         main_layout.addWidget(self.file_list)
@@ -47,26 +62,26 @@ class MainWindow(QMainWindow):
 
         google_oauth_token = self.db.get_config('google_oauth_token')
         self.google_oauth_credentials = None
-
+        
         if not google_oauth_token:
-            google_login_btn.setEnabled(True)
+            self.google_login_btn.setEnabled(True)
             return
         
         self.google_oauth_credentials = Credentials.from_authorized_user_info(google_oauth_token)
         if self.google_oauth_credentials.valid:
-            google_login_btn.setText("Google Drive Logged In")
+            self.google_login_btn.setText("Google Drive Logged In")
             return
         
         if not self.google_oauth_credentials.refresh_token:
-            google_login_btn.setEnabled(True)
+            self.google_login_btn.setEnabled(True)
             return
         
         self.google_oauth_credentials.refresh(Request())
         if self.google_oauth_credentials.valid:
-            google_login_btn.setText("Google Drive Logged In")
+            self.google_login_btn.setText("Google Drive Logged In")
             return
         
-        google_login_btn.setEnabled(True)
+        self.google_login_btn.setEnabled(True)
             
     def init_file_list(self):
         file_list = self.db.list_files()
@@ -97,9 +112,16 @@ class MainWindow(QMainWindow):
         dlg.signals.credentials.connect(self.save_google_token)
         dlg.exec()
     
+    def google_sheet(self):
+        dlg = GoogleSheetMessageBox()
+        dlg.signals.result.connect(lambda x: self.db.save_config('google_sheet_link', x))
+        dlg.exec()
+
     @pyqtSlot(dict)
     def save_google_token(self, credentials: dict):
         self.db.save_config('google_oauth_token', credentials)
+        self.google_login_btn.setText("Google Drive Logged In")
+        self.google_login_btn.setEnabled(False)
     
     @pyqtSlot()
     def upload_new_3d_file(self):

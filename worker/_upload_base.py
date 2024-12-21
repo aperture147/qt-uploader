@@ -11,7 +11,7 @@ MODEL_FILE_UPLOAD_PROGRESS_RATIO = 0.7
 FULL_3D_MODEL_PROGRESS = 100 * MODEL_FILE_UPLOAD_PROGRESS_RATIO
 
 
-class _BaseUploadWorker(QRunnable):
+class _BaseWorker(QRunnable):
     def __init__(
             self,
             file_path: str,

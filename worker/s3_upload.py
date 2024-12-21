@@ -7,7 +7,7 @@ import boto3
 from PyQt6.QtCore import pyqtSlot
 
 from ._upload_base import (
-    _BaseUploadWorker,
+    _BaseWorker,
     FULL_3D_MODEL_PROGRESS,
     MODEL_FILE_UPLOAD_PROGRESS_RATIO
 )
@@ -21,7 +21,7 @@ s3_client = boto3.client(
 
 
 
-class S3UploadWorker(_BaseUploadWorker):
+class S3UploadWorker(_BaseWorker):
     @pyqtSlot()
     def run(self):
         try:
