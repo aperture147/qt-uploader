@@ -5,6 +5,8 @@ import mimetypes
 
 from PyQt6.QtCore import pyqtSlot
 
+from ulid import ULID
+
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaFileUpload
@@ -17,6 +19,7 @@ from ._upload_base import (
 class GoogleDriveUploadWorker(_BaseUploadWorker):
     def __init__(
             self,
+            file_id: ULID,
             file_path: str,
             file_name: str,
             category1: str,
@@ -28,7 +31,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             credentials: Credentials
         ):
         super().__init__(
-            file_path, file_name,
+            file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list
@@ -39,7 +42,6 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
     @pyqtSlot()
     def run(self):
         try:
-            self.signals.status.emit(self.file_id, "running")
             self.signals.progress_message.emit(self.file_id, 1, "Preparing for uploading to Google Drive")
 
             self.signals.progress_message.emit(self.file_id, 3, "Checking for existing folders")
@@ -137,12 +139,10 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
-            self.signals.status.emit(self.file_id, "error")
             self.signals.error.emit(self.file_id, (exctype, value, traceback.format_exc()))
             self.signals.progress_message.emit(self.file_id, 0, "Failed to upload data to Google Drive")
         else:
-            self.signals.progress_message.emit(self.file_id, 100, "All uploaded to Google Drive")
-            self.signals.status.emit(self.file_id, "google_drive_upload_finished")
+            self.signals.progress_message.emit(self.file_id, 100, "All uploaded to Google Drive")            
             self.signals.result.emit(self.file_id, (model_file_id, image_file_id_list))
         finally:
             self.signals.finished.emit()

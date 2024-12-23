@@ -6,6 +6,8 @@ import boto3
 
 from PyQt6.QtCore import pyqtSlot
 
+from ulid import ULID
+
 from ._upload_base import (
     _BaseUploadWorker,
     FULL_3D_MODEL_PROGRESS,
@@ -22,6 +24,7 @@ s3_client = boto3.client(
 class S3UploadWorker(_BaseUploadWorker):
     def __init__(
             self,
+            file_id: ULID,
             file_path: str,
             file_name: str,
             category1: str,
@@ -32,7 +35,7 @@ class S3UploadWorker(_BaseUploadWorker):
             image_list: list,
         ):
         super().__init__(
-            file_path, file_name,
+            file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list
@@ -45,7 +48,6 @@ class S3UploadWorker(_BaseUploadWorker):
     @pyqtSlot()
     def run(self):
         try:
-            self.signals.status.emit(self.file_id, "running")
             self.signals.progress_message.emit(self.file_id, 10, "Uploading to S3")
             
             file_size = os.path.getsize(self.file_path)
@@ -105,12 +107,10 @@ class S3UploadWorker(_BaseUploadWorker):
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
-            self.signals.status.emit(self.file_id, "error")
             self.signals.error.emit(self.file_id, (exctype, value, traceback.format_exc()))
             self.signals.progress_message.emit(self.file_id, 0, "Failed to upload data to S3")
         else:
             self.signals.progress_message.emit(self.file_id, 100, "All uploaded to S3")
-            self.signals.status.emit(self.file_id, "s3_upload_finished")
             self.signals.result.emit(self.file_id, (model_key, image_key_list))
         finally:
             self.signals.finished.emit()

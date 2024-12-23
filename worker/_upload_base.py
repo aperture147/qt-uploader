@@ -14,6 +14,7 @@ FULL_3D_MODEL_PROGRESS = 100 * MODEL_FILE_UPLOAD_PROGRESS_RATIO
 class _BaseUploadWorker(QRunnable):
     def __init__(
             self,
+            file_id: ULID,
             file_path: str,
             file_name: str,
             category1: str,
@@ -25,7 +26,7 @@ class _BaseUploadWorker(QRunnable):
         ):
         super().__init__()
         
-        self.file_id = ULID()
+        self.file_id = file_id
         self.file_path = file_path
         self.file_name = re.sub(FILE_NAME_REGEX, '_', file_name)
         self.category1 = re.sub(FILE_NAME_REGEX, '_', category1)

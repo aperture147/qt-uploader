@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
     QVBoxLayout, QHBoxLayout, QWidget
 )
-from PyQt6.QtCore import QThreadPool, pyqtSlot
+from PyQt6.QtCore import QThreadPool, pyqtSlot, QThread
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -16,8 +16,15 @@ from widget import (
     FileSelectDialog, FileListWidget,FileListWidgetItem,
     GoogleLoginMessageBox, # GoogleSheetMessageBox
 )
-from util import UploadWaiter
-from worker import S3UploadWorker, GoogleDriveUploadWorker
+
+from worker import (
+    S3UploadWorker, GoogleDriveUploadWorker,
+    UploadWaiterWorker
+)
+
+from util.api import create_api_upload_worker
+
+
 from db import QtDBObject
 
 class MainWindow(QMainWindow):
@@ -96,7 +103,7 @@ class MainWindow(QMainWindow):
                 continue
             
             if file_id in self.running_task_dict:
-                s3_upload_worker, google_drive_upload_worker, uploader_waiter = self.running_task_dict[file_id]
+                s3_upload_worker, google_drive_upload_worker, *_ = self.running_task_dict[file_id]
                 s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
                 s3_upload_worker.signals.status.connect(task_item.set_status)
                 
@@ -105,7 +112,7 @@ class MainWindow(QMainWindow):
                     google_drive_upload_worker.signals.status.connect(task_item.set_status)
     
     def init_running_task_dict(self):
-        self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiter]] = {}
+        self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiterWorker]] = {}
     
     def google_login(self):
         dlg = GoogleLoginMessageBox()
@@ -134,62 +141,68 @@ class MainWindow(QMainWindow):
         render_engine: str,
         image_list: list
     ):
+        if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
+            print("Google Drive credential is invalid, cannot upload")
+            # FIXME: show message box
+            return
+
         task_item = FileListWidgetItem(file_name)
         self.file_list.add_item(task_item)
         
-        s3_upload_worker = S3UploadWorker(
-            file_path, file_name,
+        file_id = ULID()
+        
+        self.db.create_file(
+            file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list
         )
         
-        upload_waiter = UploadWaiter(
-            file_name,
+        upload_waiter = UploadWaiterWorker(
+            file_id, file_name,
             [category1, category2, category3],
             blender_version, render_engine
         )
+        upload_waiter_thread = QThread()
+        upload_waiter.moveToThread(upload_waiter_thread)
+        upload_waiter.signals.finished.connect(upload_waiter_thread.quit)
+        upload_waiter.signals.finished.connect(upload_waiter_thread.deleteLater)
+        upload_waiter.signals.finished.connect(upload_waiter.deleteLater)
         
-        self.db.create_file(
-            s3_upload_worker.file_id, file_path, file_name,
+        s3_upload_worker = S3UploadWorker(
+            file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list
         )
         
-        s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
-        s3_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
-        
-        s3_upload_worker.signals.status.connect(self.db.set_file_status)
-        
-        s3_upload_worker.signals.result.connect(upload_waiter.receive_s3_upload_result)
-        
-        self.upload_threadpool.start(s3_upload_worker)
-
-        if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
-            print("Credential is invalid, upload to Google Drive skipped")
-            self.running_task_dict[s3_upload_worker.file_id] = (s3_upload_worker, None, upload_waiter)
-            return
+        upload_waiter.signals.progress_message.connect(task_item.set_progress_message)
+        upload_waiter.signals.progress_message.connect(self.db.set_file_progress_message)
 
         google_drive_upload_worker = GoogleDriveUploadWorker(
-            file_path, file_name,
+            file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
             image_list,
             self.google_oauth_credentials
         )
-
-        google_drive_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
-        google_drive_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
         
-        google_drive_upload_worker.signals.status.connect(self.db.set_file_status)
+        upload_waiter.add_upload_worker("google_drive", google_drive_upload_worker)
+        upload_waiter.add_upload_worker("s3", s3_upload_worker)
         
-        google_drive_upload_worker.signals.result.connect(upload_waiter.receive_google_drive_upload_result)
+        upload_waiter_thread.start()
         
+        self.upload_threadpool.start(s3_upload_worker)
         self.upload_threadpool.start(google_drive_upload_worker)
         
-        self.running_task_dict[s3_upload_worker.file_id] = (s3_upload_worker, google_drive_upload_worker, upload_waiter)
+        upload_waiter.signals.result.connect(lambda _, y: create_api_upload_worker(file_name, [category1, category2, category3], blender_version, render_engine, y))
         
+        self.running_task_dict[s3_upload_worker.file_id] = (
+            s3_upload_worker, google_drive_upload_worker,
+            upload_waiter, upload_waiter_thread
+        )
+    
+    
     
     def __init__(self):
         super().__init__()
