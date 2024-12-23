@@ -62,6 +62,6 @@ class APIUpdateWorker(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit(self.file_id, (exctype, value, traceback.format_exc()))
         else:
-            self.signals.result.emit((resp_json['id'],))
+            self.signals.result.emit(self.file_id, (resp_json['id'],))
         finally:
             self.signals.finished.emit()

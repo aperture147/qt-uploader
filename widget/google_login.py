@@ -22,7 +22,6 @@ CLIENT_CONFIG = {
 
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets"
 ]
 
 class GoogleLoginWorkerSignals(QObject):
@@ -35,13 +34,13 @@ class GoogleLoginWorker(QObject):
     def __init__(self):
         super().__init__()
         self.signals = GoogleLoginWorkerSignals()
-    
+        self.flow = InstalledAppFlow.from_client_config(CLIENT_CONFIG, SCOPES)
+
     @pyqtSlot()
     def run(self):
         try:
             # google forces me to include client secret here...
-            flow = InstalledAppFlow.from_client_config(CLIENT_CONFIG, SCOPES)
-            cred_obj = flow.run_local_server(port=0)
+            cred_obj = self.flow.run_local_server(port=0)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -66,22 +65,21 @@ class GoogleLoginMessageBox(QMessageBox):
         self.setText("Please complete the login process on your browser. This window will close automatically after you have logged in.")
         self.setIcon(QMessageBox.Icon.Information)
         
-        # self.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        self.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        self.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        default_button = self.defaultButton()
+        default_button.clicked.connect(self.reject)
         
         self.worker = GoogleLoginWorker()
         self.worker_thread = QThread()
-        
-        def end_worker_thread():
-            self.worker_thread.quit()
-            self.worker.deleteLater()
-            self.worker_thread.deleteLater()
+        self.worker_thread.setTerminationEnabled(True)
         
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
-        self.worker.signals.finished.connect(end_worker_thread)
+        self.worker.signals.finished.connect(self.end_worker_thread)
         
         self.worker.signals.result.connect(self.signals.credentials.emit)
-        self.worker.signals.result.connect(lambda x: self.accept())
+        self.worker.signals.result.connect(lambda _: self.accept())
         
         self.worker.signals.error.connect(self.reject)
         
@@ -89,11 +87,22 @@ class GoogleLoginMessageBox(QMessageBox):
         # self.buttons()[0].clicked.connect(end_worker_thread)
         
         self.worker_thread.start()
-        
+    
+    @pyqtSlot()
+    def end_worker_thread(self):
+        self.worker_thread.quit()
+        self.worker_thread.terminate()
+        self.worker.deleteLater()
+        self.worker_thread.deleteLater()
+
+    @pyqtSlot()
     def reject(self):
+        self.end_worker_thread()
         self.worker_thread.wait(QDeadlineTimer(1000))
         super().reject()
-        
+    
+    @pyqtSlot()
     def accept(self):
+        self.end_worker_thread()
         self.worker_thread.wait(QDeadlineTimer(1000))
         super().accept()

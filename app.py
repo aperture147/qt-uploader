@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
@@ -93,10 +93,8 @@ class MainWindow(QMainWindow):
             
     def init_file_list(self):
         file_list = self.db.list_files()
-        for file_id, name, path, \
-            blender_version, render_engine, \
-            category1, category2, category3, \
-            image_list, status, progress, message in file_list:
+        for file_id, name, *_, \
+            status, progress, message in file_list:
             task_item = FileListWidgetItem(name, status, progress, message)
             self.file_list.add_item(task_item)
             if status == "finished":
@@ -134,7 +132,7 @@ class MainWindow(QMainWindow):
         category3: str,
         blender_version: str,
         render_engine: str,
-        image_list: list
+        image_path_list: List[str]
     ):
         if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
             print("Google Drive credential is invalid, cannot upload")
@@ -148,9 +146,9 @@ class MainWindow(QMainWindow):
         
         self.db.create_file(
             file_id, file_path, file_name,
-            category1, category2, category3,
-            blender_version, render_engine,
-            image_list
+            [category1, category2, category3],
+            image_path_list,
+            blender_version, render_engine
         )
         
         upload_waiter = UploadWaiterWorker(
@@ -168,7 +166,7 @@ class MainWindow(QMainWindow):
             file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
-            image_list
+            image_path_list
         )
         
         upload_waiter.signals.progress_message.connect(task_item.set_progress_message)
@@ -178,7 +176,7 @@ class MainWindow(QMainWindow):
             file_id, file_path, file_name,
             category1, category2, category3,
             blender_version, render_engine,
-            image_list,
+            image_path_list,
             self.google_oauth_credentials
         )
         
@@ -190,22 +188,28 @@ class MainWindow(QMainWindow):
         self.upload_threadpool.start(s3_upload_worker)
         self.upload_threadpool.start(google_drive_upload_worker)
         
-        upload_waiter.signals.result.connect(
-            lambda _, result_tuple: 
-                self.upload_threadpool.start(
-                    create_api_upload_worker(
-                        file_name,
-                        [category1, category2, category3],
-                        blender_version, render_engine, result_tuple
-                    )
-                )
+        def handle_result(file_id: ULID, result_tuple: Tuple[Dict[str, tuple]]):
+            task_item.set_progress_message(file_id, 99, "Committing to API")
+            result, = result_tuple
+            api_upload_worker = create_api_upload_worker(
+                file_id, file_name,
+                [category1, category2, category3],
+                blender_version, render_engine, result
             )
+            api_upload_worker.signals.result.connect(lambda: task_item.set_progress_message(file_id, 100, "Finished"))
+            api_upload_worker.signals.result.connect(lambda: self.db.set_file_progress_message(file_id, 100, "Finished"))
+            api_upload_worker.signals.result.connect(lambda: self.db.set_file_status(file_id, "finished"))
+            self.upload_threadpool.start(api_upload_worker)
+
+        upload_waiter.signals.result.connect(handle_result)
+        upload_waiter.signals.result.connect(self.db.set_uploaded_file_attributes)
         
         self.running_task_dict[s3_upload_worker.file_id] = (
             s3_upload_worker, google_drive_upload_worker,
             upload_waiter, upload_waiter_thread
         )
-    
+
+
     def __init__(self):
         super().__init__()
         

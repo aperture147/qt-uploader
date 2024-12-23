@@ -1,15 +1,17 @@
-from typing import Tuple, Dict, List
+from typing import Dict, List
 from worker import APIUpdateWorker
 
 def create_api_upload_worker(
+        file_id: str,
         name: str,
         category_list: List[str],
         blender_version: str,
         render_engine: str,
-        result: Tuple[Dict[str, tuple]]
+        result: Dict[str, tuple]
     ) -> APIUpdateWorker:
     
     params = {
+        'file_id': file_id,
         'name': name,
         'category_list': category_list,
         'blender_version': blender_version,

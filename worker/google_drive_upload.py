@@ -2,6 +2,7 @@ import os
 import traceback
 import sys
 import mimetypes
+from typing import List
 
 from PyQt6.QtCore import pyqtSlot
 
@@ -22,9 +23,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             file_id: ULID,
             file_path: str,
             file_name: str,
-            category1: str,
-            category2: str,
-            category3: str,
+            category_list: List[str],
             blender_version: str,
             render_engine: str,
             image_list: list,
@@ -32,7 +31,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
         ):
         super().__init__(
             file_id, file_path, file_name,
-            category1, category2, category3,
+            category_list,
             blender_version, render_engine,
             image_list
         )
@@ -51,7 +50,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             }
             current_folder_path = ''
             folder_checking_progress = 10
-            for category in [self.category1, self.category2, self.category3]:
+            for category in self.category_list:
                 folder_metadata['name'] = category
                 current_folder_path += f'{category}/'
                 self.signals.progress_message.emit(self.file_id, folder_checking_progress, f"Checking folder {current_folder_path}")
@@ -117,7 +116,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                 self.signals.progress_message.emit(
                     self.file_id,
                     FULL_3D_MODEL_PROGRESS + (i * 29 / image_count),
-                    f"Uploading image {fs_image_file_name} {i + 1}/{image_count}"
+                    f"Uploading image {image_file_name} to Google Drive - {i + 1}/{image_count}"
                 )
                 
                 file_metadata = {

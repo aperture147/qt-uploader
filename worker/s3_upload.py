@@ -1,6 +1,7 @@
 import os
 import traceback
 import sys
+from typing import List
 
 import boto3
 
@@ -27,23 +28,21 @@ class S3UploadWorker(_BaseUploadWorker):
             file_id: ULID,
             file_path: str,
             file_name: str,
-            category1: str,
-            category2: str,
-            category3: str,
+            category_list: List[str],
             blender_version: str,
             render_engine: str,
             image_list: list,
         ):
         super().__init__(
             file_id, file_path, file_name,
-            category1, category2, category3,
+            category_list,
             blender_version, render_engine,
             image_list
         )
         _, ext = os.path.splitext(self.file_path)
         self.model_file_name = f'{os.path.basename(self.file_path)}{ext}'
         
-        self.category_path = os.path.join(self.category1, self.category2, self.category3)
+        self.category_path = os.path.join(*category_list)
     
     @pyqtSlot()
     def run(self):
@@ -82,11 +81,11 @@ class S3UploadWorker(_BaseUploadWorker):
             for i, image_path in enumerate(self.image_list):
                 fs_image_file_name = os.path.basename(image_path)
                 image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
-                print((i * 29 / image_count))
+                
                 self.signals.progress_message.emit(
                     self.file_id,
                     FULL_3D_MODEL_PROGRESS + (i * 29 / image_count),
-                    f"Uploading image {image_file_name} - {i + 1}/{image_count}"
+                    f"Uploading image {image_file_name} to S3 - {i + 1}/{image_count}"
                 )
                 image_key = os.path.join(
                     self.category_path,

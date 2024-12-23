@@ -78,6 +78,6 @@ class FileListWidget(QListWidget):
     def add_item(self, widgetItem: FileListWidgetItem):
         item = QListWidgetItem()
         item.setSizeHint(widgetItem.sizeHint())
-        self.addItem(item)
+        self.insertItem(0, item)
         self.setItemWidget(item, widgetItem)
         

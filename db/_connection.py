@@ -1,7 +1,7 @@
 from sqlite3 import connect
 from contextlib import closing
 import json
-from typing import Any, Generator
+from typing import Any, Generator, Dict, Tuple, List
 import math
 
 from PyQt6.QtCore import pyqtSlot, QObject
@@ -23,10 +23,12 @@ class QtDBObject(QObject):
                 path TEXT NOT NULL,
                 blender_version TEXT NOT NULL,
                 render_engine TEXT NOT NULL,
-                category_1 TEXT NOT NULL,
-                category_2 TEXT NOT NULL,
-                category_3 TEXT NOT NULL,
-                image_list JSON NOT NULL DEFAULT '[]',
+                category_list JSON NOT NULL DEFAULT '[]',
+                image_path_list JSON NOT NULL DEFAULT '[]',
+                s3_model_key TEXT,
+                s3_image_key_list JSON NOT NULL DEFAULT '[]',
+                google_drive_model_id TEXT,
+                google_drive_image_id_list JSON NOT NULL DEFAULT '[]',
                 task_status TEXT NOT NULL,
                 task_progress INTEGER NOT NULL DEFAULT 0,
                 task_message TEXT NOT NULL DEFAULT ''
@@ -43,20 +45,39 @@ class QtDBObject(QObject):
     def __del__(self):
         self.conn.close()
     
-    def list_files(self) -> Generator[tuple[ULID, str, str, str, str, str, str, str, list[str], str, str, str], None, None]:
+    def list_files(self) -> Generator[tuple[
+            ULID, str, str,
+            str, str,
+            List[str], List[str],
+            str, List[str],
+            str, List[str],
+            str, str, str
+        ], None, None]:
         with closing(self.conn.cursor()) as cur:
             cur.execute("""
                 SELECT
                     id, name, path,
                     blender_version, render_engine,
-                    category_1, category_2, category_3,
-                    image_list,
+                    category_list, image_path_list,
+                    s3_model_key, s3_image_key_list,
+                    google_drive_model_id, google_drive_image_id_list,
                     task_status, task_progress, task_message
                 FROM file
-                ORDER BY id DESC
             """)
-            for file_id, *cols, image_list, status, progress, message in cur.fetchall():
-                yield (ULID(value=file_id), *cols, json.loads(image_list), status, progress, message)
+            for file_id, name, path, \
+                blender_version, render_engine, \
+                category_list, image_path_list, \
+                s3_model_key, s3_image_key_list, \
+                google_drive_model_id, google_drive_image_id_list, \
+                status, progress, message in cur.fetchall():
+                yield (
+                    ULID(value=file_id), name, path,
+                    blender_version, render_engine,
+                    json.loads(category_list), json.loads(image_path_list),
+                    s3_model_key, json.loads(s3_image_key_list),
+                    google_drive_model_id, json.loads(google_drive_image_id_list),
+                    status, progress, message
+                )
     
     @pyqtSlot(str, dict)
     def save_config(self, key: str, value: dict):
@@ -82,18 +103,16 @@ class QtDBObject(QObject):
                 return None
             return json.loads(credentials[0])
 
-    @pyqtSlot(ULID, str, str, str, str, str, str, str, list)
+    @pyqtSlot(ULID, str, str, list, list, str, str)
     def create_file(
         self,
         file_id: ULID,
-        file_path: str,
         file_name: str,
-        category1: str,
-        category2: str,
-        category3: str,
+        file_path: str,
+        category_list: List[str],
+        image_path_list: List[str],
         blender_version: str,
         render_engine: str,
-        image_list: list
     ):
         with closing(self.conn.cursor()) as cur:
             cur.execute(
@@ -102,8 +121,7 @@ class QtDBObject(QObject):
                 (
                     id, name, path,
                     blender_version, render_engine,
-                    category_1, category_2, category_3,
-                    image_list,
+                    category_list, image_path_list,
                     task_status, task_progress, task_message
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -114,10 +132,8 @@ class QtDBObject(QObject):
                     file_path,
                     blender_version,
                     render_engine,
-                    category1,
-                    category2,
-                    category3,
-                    json.dumps(image_list),
+                    json.dumps(category_list),
+                    json.dumps(image_path_list),
                     "pending",
                     0,
                     "Pending"
@@ -135,7 +151,7 @@ class QtDBObject(QObject):
                 WHERE id = ?
             """, (math.ceil(progress), message, file_id.bytes))
             self.conn.commit()
-
+    
     @pyqtSlot(ULID, str)
     def set_file_status(self, file_id: ULID, status: str):
         with closing(self.conn.cursor()) as cur:
@@ -144,4 +160,27 @@ class QtDBObject(QObject):
                 SET task_status = ?
                 WHERE id = ?
             """,(status, file_id.bytes,))
+            self.conn.commit()
+    
+    @pyqtSlot(ULID, tuple)
+    def set_uploaded_file_attributes(
+            self,
+            file_id: ULID,
+            result_tuple: Tuple[Dict[str, tuple]]
+        ):
+        with closing(self.conn.cursor()) as cur:
+            result, = result_tuple
+            google_drive_model_path, google_drive_image_path_list = result['google_drive']
+            s3_model_key, s3_image_key_list = result['s3']
+            cur.execute("""
+                UPDATE file SET 
+                    s3_model_key = ?, s3_image_key_list = ?,
+                    google_drive_model_id = ?, google_drive_image_id_list = ?
+                WHERE id = ?
+            """, (
+                s3_model_key, json.dumps(s3_image_key_list),
+                google_drive_model_path, json.dumps(google_drive_image_path_list),
+                file_id.bytes
+            ))
+            
             self.conn.commit()

@@ -1,3 +1,6 @@
+import os
+from typing import Dict
+
 from PyQt6.QtWidgets import (
     QDialog, QFileDialog, QDialogButtonBox,
     QVBoxLayout, QHBoxLayout, QComboBox, QMessageBox,
@@ -6,19 +9,10 @@ from PyQt6.QtWidgets import (
 
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
-import os
+
 from ulid import ULID
-from typing import Dict
 
-BLENDER_VERSION_LIST = [
-    "2.79", "2.80", "2.81", "2.82", "2.83",
-    "2.90", "2.91", "2.92", "2.93",
-    "3.0", "3.1", "3.2", "3.3", "3.4", "3.5"
-]
-
-RENDER_ENGINE_LIST = [
-    "Cycles", "Eevee", "RenderMan"
-]
+from ._file_select_const import BLENDER_VERSION_LIST, RENDER_ENGINE_LIST, CATEGORY_DICTIONARY
 
 class TooManyImageMessageBox(QMessageBox):
     def __init__(self):
@@ -140,10 +134,10 @@ class FileSelectDialog(QDialog):
         
         category_1_layout = QVBoxLayout()
         category_1_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_1_line_edit = QLineEdit()
-        self.category_1_line_edit.setPlaceholderText("Category 1")
+        self.category_1_combo_box = QComboBox()
+        self.category_1_combo_box.addItems(CATEGORY_DICTIONARY.keys())
         category_1_layout.addWidget(QLabel('Category 1 <span style="color:red">*</span>'))
-        category_1_layout.addWidget(self.category_1_line_edit)
+        category_1_layout.addWidget(self.category_1_combo_box)
         category_1_widget = QWidget()
         
         category_1_widget.setLayout(category_1_layout)
@@ -207,7 +201,7 @@ class FileSelectDialog(QDialog):
         add_image_button = QPushButton("Add Preview Images")
         add_image_button.clicked.connect(self.add_images)
         add_image_button.setFixedWidth(150)
-        img_label_and_add_image_btn_layout.addWidget(QLabel('Images <i>(max 5 images, at lest 3 images)</i> <span style="color:red">*</span>'))
+        img_label_and_add_image_btn_layout.addWidget(QLabel('Images <i>(max 5 images, at least 3 images)</i> <span style="color:red">*</span>'))
         img_label_and_add_image_btn_layout.addWidget(add_image_button)
         img_label_and_add_image_btn_widget = QWidget()
         img_label_and_add_image_btn_widget.setLayout(img_label_and_add_image_btn_layout)
@@ -279,7 +273,7 @@ class FileSelectDialog(QDialog):
         self.file_selected.emit(
             self.file_path_line_edit.text(),
             self.file_name_line_edit.text(),
-            self.category_1_line_edit.text(),
+            self.category_1_combo_box.text(),
             self.category_2_line_edit.text(),
             self.category_3_line_edit.text(),
             self.blender_version_drop_down.currentText(),
@@ -297,22 +291,8 @@ class FileSelectDialog(QDialog):
         
         if file_path:
             self.file_path_line_edit.setText(file_path)
-            *category_list, file_name = file_path.split(os.sep)
+            *_, file_name = file_path.split(os.sep)
             self.file_name_line_edit.setText(os.path.splitext(file_name)[0])
-            
-            category_line_edit_list = [
-                self.category_1_line_edit,
-                self.category_2_line_edit,
-                self.category_3_line_edit
-            ]
-
-            for i, category_line_edit in enumerate(category_line_edit_list):
-                try:
-                    category_line_edit.setText(category_list.pop())
-                except IndexError:
-                    for i in range(len(category_line_edit)):
-                        category_line_edit_list[i].setText("N/A")
-                    break
             
     @pyqtSlot()
     def add_images(self):
