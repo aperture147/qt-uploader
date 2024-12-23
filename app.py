@@ -103,16 +103,11 @@ class MainWindow(QMainWindow):
                 continue
             
             if file_id in self.running_task_dict:
-                s3_upload_worker, google_drive_upload_worker, *_ = self.running_task_dict[file_id]
-                s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
-                s3_upload_worker.signals.status.connect(task_item.set_status)
-                
-                if google_drive_upload_worker:
-                    google_drive_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
-                    google_drive_upload_worker.signals.status.connect(task_item.set_status)
+                *_, upload_waiter, _ = self.running_task_dict[file_id]
+                upload_waiter.signals.progress_message.connect(task_item.set_progress_message)
     
     def init_running_task_dict(self):
-        self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiterWorker]] = {}
+        self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiterWorker, QThread]] = {}
     
     def google_login(self):
         dlg = GoogleLoginMessageBox()
@@ -195,14 +190,21 @@ class MainWindow(QMainWindow):
         self.upload_threadpool.start(s3_upload_worker)
         self.upload_threadpool.start(google_drive_upload_worker)
         
-        upload_waiter.signals.result.connect(lambda _, y: create_api_upload_worker(file_name, [category1, category2, category3], blender_version, render_engine, y))
+        upload_waiter.signals.result.connect(
+            lambda _, result_tuple: 
+                self.upload_threadpool.start(
+                    create_api_upload_worker(
+                        file_name,
+                        [category1, category2, category3],
+                        blender_version, render_engine, result_tuple
+                    )
+                )
+            )
         
         self.running_task_dict[s3_upload_worker.file_id] = (
             s3_upload_worker, google_drive_upload_worker,
             upload_waiter, upload_waiter_thread
         )
-    
-    
     
     def __init__(self):
         super().__init__()

@@ -84,7 +84,7 @@ class UploadWaiterWorker(QObject):
         if self.count > 0:
             print(f'Waiting for {self.count} upload event')
             return
-        self.signals.result.emit((self.result_dict,))
+        self.signals.result.emit(file_id, (self.result_dict,))
     
     @pyqtSlot(str, ULID, float, str)
     def receive_progress_message(self, slot_id: str, file_id: ULID, progress: float, message: str):
@@ -92,7 +92,7 @@ class UploadWaiterWorker(QObject):
         self.progress_dict[slot_id] = progress
         self.signals.progress_message.emit(
             self.file_id,
-            math.ceil(sum(self.progress_dict.values) / len(self.progress_dict)),
+            math.ceil(sum(self.progress_dict.values()) / len(self.progress_dict)),
             message
         )
     
