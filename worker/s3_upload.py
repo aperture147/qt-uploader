@@ -7,7 +7,7 @@ import boto3
 from PyQt6.QtCore import pyqtSlot
 
 from ._upload_base import (
-    _BaseWorker,
+    _BaseUploadWorker,
     FULL_3D_MODEL_PROGRESS,
     MODEL_FILE_UPLOAD_PROGRESS_RATIO
 )
@@ -19,22 +19,34 @@ s3_client = boto3.client(
     aws_secret_access_key = '0b5d1088e4ce8dcaabd553e31292d53e6b74cf135666970e0f5ab197e9699ffa',
 )
 
-
-
-class S3UploadWorker(_BaseWorker):
+class S3UploadWorker(_BaseUploadWorker):
+    def __init__(
+            self,
+            file_path: str,
+            file_name: str,
+            category1: str,
+            category2: str,
+            category3: str,
+            blender_version: str,
+            render_engine: str,
+            image_list: list,
+        ):
+        super().__init__(
+            file_path, file_name,
+            category1, category2, category3,
+            blender_version, render_engine,
+            image_list
+        )
+        _, ext = os.path.splitext(self.file_path)
+        self.model_file_name = f'{os.path.basename(self.file_path)}{ext}'
+        
+        self.category_path = os.path.join(self.category1, self.category2, self.category3)
+    
     @pyqtSlot()
     def run(self):
         try:
             self.signals.status.emit(self.file_id, "running")
             self.signals.progress_message.emit(self.file_id, 10, "Uploading to S3")
-            orig_file_name = os.path.basename(self.file_path)
-            _, ext = os.path.splitext(self.file_path)
-            object_key = os.path.join(
-                self.category1,
-                self.category2,
-                self.category3,
-                f'{self.file_name}{ext}'
-            )
             
             file_size = os.path.getsize(self.file_path)
             
@@ -43,13 +55,18 @@ class S3UploadWorker(_BaseWorker):
                 self.signals.progress_message.emit(
                     self.file_id,
                     progress * MODEL_FILE_UPLOAD_PROGRESS_RATIO,
-                    f"Uploading {orig_file_name}: {progress}%"
+                    f"Uploading {self.model_file_name}: {progress}%"
                 )
 
+            model_key = os.path.join(
+                self.category_path,
+                self.model_file_name
+            )
+            
             s3_client.upload_file(
                 Filename=self.file_path,
                 Bucket="test-bucket",
-                Key=object_key,
+                Key=model_key,
                 Callback=upload_progress
             )
             
@@ -58,21 +75,19 @@ class S3UploadWorker(_BaseWorker):
                 FULL_3D_MODEL_PROGRESS,
                 "Uploaded images to S3"
             )
-            
+            image_key_list = []
             image_count = len(self.image_list)
             for i, image_path in enumerate(self.image_list):
                 fs_image_file_name = os.path.basename(image_path)
                 image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
-                
+                print((i * 29 / image_count))
                 self.signals.progress_message.emit(
                     self.file_id,
                     FULL_3D_MODEL_PROGRESS + (i * 29 / image_count),
-                    f"Uploading image {fs_image_file_name} {i + 1}/{image_count}"
+                    f"Uploading image {image_file_name} - {i + 1}/{image_count}"
                 )
                 image_key = os.path.join(
-                    self.category1,
-                    self.category2,
-                    self.category3,
+                    self.category_path,
                     image_file_name
                 )
                 s3_client.upload_file(
@@ -80,6 +95,7 @@ class S3UploadWorker(_BaseWorker):
                     Bucket="test-bucket",
                     Key=image_key
                 )
+                image_key_list.append(image_key)
                 self.signals.progress_message.emit(
                     self.file_id,
                     FULL_3D_MODEL_PROGRESS + ((i + 1) * 29 / image_count),
@@ -94,9 +110,8 @@ class S3UploadWorker(_BaseWorker):
             self.signals.progress_message.emit(self.file_id, 0, "Failed to upload data to S3")
         else:
             self.signals.progress_message.emit(self.file_id, 100, "All uploaded to S3")
-            self.signals.status.emit(self.file_id, "finished")
+            self.signals.status.emit(self.file_id, "s3_upload_finished")
+            self.signals.result.emit(self.file_id, (model_key, image_key_list))
         finally:
             self.signals.finished.emit()
         
-            
-            

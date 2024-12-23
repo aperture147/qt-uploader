@@ -1,4 +1,5 @@
 import sys
+from typing import Dict, Tuple
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPushButton,
@@ -9,10 +10,13 @@ from PyQt6.QtCore import QThreadPool, pyqtSlot
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
+from ulid import ULID
+
 from widget import (
-    FileSelectDialog, FileListWidget, FileListWidgetItem,
-    GoogleLoginMessageBox, GoogleSheetMessageBox
+    FileSelectDialog, FileListWidget,FileListWidgetItem,
+    GoogleLoginMessageBox, # GoogleSheetMessageBox
 )
+from util import UploadWaiter
 from worker import S3UploadWorker, GoogleDriveUploadWorker
 from db import QtDBObject
 
@@ -30,6 +34,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout()
         
         google_btn_layout = QHBoxLayout()
+        google_btn_layout.setSpacing(10)
         google_btn_layout.setContentsMargins(0, 0, 0, 0)
 
         new_3d_file_btn = QPushButton("Upload new 3D File")
@@ -40,10 +45,6 @@ class MainWindow(QMainWindow):
         self.google_login_btn.clicked.connect(self.google_login)
         self.google_login_btn.setEnabled(False)
         google_btn_layout.addWidget(self.google_login_btn)
-
-        google_sheet_btn = QPushButton("Google Sheet Link")
-        google_sheet_btn.clicked.connect(self.google_sheet)
-        google_btn_layout.addWidget(google_sheet_btn)
 
         google_btn_widget = QWidget()
         google_btn_widget.setLayout(google_btn_layout)
@@ -90,31 +91,25 @@ class MainWindow(QMainWindow):
             category1, category2, category3, \
             image_list, status, progress, message in file_list:
             task_item = FileListWidgetItem(name, status, progress, message)
+            self.file_list.add_item(task_item)
             if status == "finished":
-                self.file_list.add_item(task_item)
                 continue
-
+            
             if file_id in self.running_task_dict:
-                s3_upload_worker: S3UploadWorker = self.running_task_dict[file_id]
+                s3_upload_worker, google_drive_upload_worker, uploader_waiter = self.running_task_dict[file_id]
                 s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
-                s3_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
-                
                 s3_upload_worker.signals.status.connect(task_item.set_status)
-                s3_upload_worker.signals.status.connect(self.db.set_file_status)
                 
-                self.file_list.add_item(task_item)
-
+                if google_drive_upload_worker:
+                    google_drive_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
+                    google_drive_upload_worker.signals.status.connect(task_item.set_status)
+    
     def init_running_task_dict(self):
-        self.running_task_dict = {}
+        self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiter]] = {}
     
     def google_login(self):
         dlg = GoogleLoginMessageBox()
         dlg.signals.credentials.connect(self.save_google_token)
-        dlg.exec()
-    
-    def google_sheet(self):
-        dlg = GoogleSheetMessageBox()
-        dlg.signals.result.connect(lambda x: self.db.save_config('google_sheet_link', x))
         dlg.exec()
 
     @pyqtSlot(dict)
@@ -149,7 +144,12 @@ class MainWindow(QMainWindow):
             image_list
         )
         
-        self.running_task_dict[s3_upload_worker.file_id] = s3_upload_worker
+        upload_waiter = UploadWaiter(
+            file_name,
+            [category1, category2, category3],
+            blender_version, render_engine
+        )
+        
         self.db.create_file(
             s3_upload_worker.file_id, file_path, file_name,
             category1, category2, category3,
@@ -160,13 +160,15 @@ class MainWindow(QMainWindow):
         s3_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
         s3_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
         
-        s3_upload_worker.signals.status.connect(task_item.set_status)
         s3_upload_worker.signals.status.connect(self.db.set_file_status)
+        
+        s3_upload_worker.signals.result.connect(upload_waiter.receive_s3_upload_result)
         
         self.upload_threadpool.start(s3_upload_worker)
 
         if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
             print("Credential is invalid, upload to Google Drive skipped")
+            self.running_task_dict[s3_upload_worker.file_id] = (s3_upload_worker, None, upload_waiter)
             return
 
         google_drive_upload_worker = GoogleDriveUploadWorker(
@@ -180,10 +182,13 @@ class MainWindow(QMainWindow):
         google_drive_upload_worker.signals.progress_message.connect(task_item.set_progress_message)
         google_drive_upload_worker.signals.progress_message.connect(self.db.set_file_progress_message)
         
-        google_drive_upload_worker.signals.status.connect(task_item.set_status)
         google_drive_upload_worker.signals.status.connect(self.db.set_file_status)
-
+        
+        google_drive_upload_worker.signals.result.connect(upload_waiter.receive_google_drive_upload_result)
+        
         self.upload_threadpool.start(google_drive_upload_worker)
+        
+        self.running_task_dict[s3_upload_worker.file_id] = (s3_upload_worker, google_drive_upload_worker, upload_waiter)
         
     
     def __init__(self):

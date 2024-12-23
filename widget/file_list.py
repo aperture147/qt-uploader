@@ -1,3 +1,5 @@
+import math
+
 from PyQt6.QtWidgets import (
     QListWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QWidget, QPushButton,
@@ -50,9 +52,9 @@ class FileListWidgetItem(QWidget):
         
         self.setLayout(item_layout)
 
-    @pyqtSlot(ULID, int, str)
-    def set_progress_message(self, file_id: ULID, progress: int, status: str):
-        self.task_progress_bar.setValue(progress)
+    @pyqtSlot(ULID, float, str)
+    def set_progress_message(self, file_id: ULID, progress: float, status: str):
+        self.task_progress_bar.setValue(math.ceil(progress))
         self.task_status_label.setText(f'<i>{status}</i>')
 
     @pyqtSlot(ULID, str)

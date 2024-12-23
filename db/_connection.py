@@ -2,6 +2,7 @@ from sqlite3 import connect
 from contextlib import closing
 import json
 from typing import Any, Generator
+import math
 
 from PyQt6.QtCore import pyqtSlot, QObject
 from ulid import ULID
@@ -124,14 +125,15 @@ class QtDBObject(QObject):
             )
             self.conn.commit()
     
-    @pyqtSlot(ULID, int, str)
-    def set_file_progress_message(self, file_id: ULID, progress: int, status: str):
+    @pyqtSlot(ULID, float, str)
+    def set_file_progress_message(self, file_id: ULID, progress: float, message: str):
+        print(f"Setting progress message for {file_id} to {progress}: {message}")
         with closing(self.conn.cursor()) as cur:
             cur.execute("""
                 UPDATE file
                 SET task_progress = ?, task_message = ?
                 WHERE id = ?
-            """, (progress, status, file_id.bytes))
+            """, (math.ceil(progress), message, file_id.bytes))
             self.conn.commit()
 
     @pyqtSlot(ULID, str)

@@ -10,11 +10,11 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaFileUpload
 
 from ._upload_base import (
-    _BaseWorker,
+    _BaseUploadWorker,
     FULL_3D_MODEL_PROGRESS
 )
 
-class GoogleDriveUploadWorker(_BaseWorker):
+class GoogleDriveUploadWorker(_BaseUploadWorker):
     def __init__(
             self,
             file_path: str,
@@ -92,21 +92,21 @@ class GoogleDriveUploadWorker(_BaseWorker):
             self.signals.progress_message.emit(
                 self.file_id,
                 folder_checking_progress + 5,
-                "Uploading images to Google Drive"
+                "Uploading model to Google Drive"
             )
 
             file = self.drive_service.files() \
                 .create(body=file_metadata, media_body=media, fields="id") \
                 .execute()
-            
-            print(f'File ID: {file.get("id")}')
+            model_file_id = file.get("id")
+            print(f'File ID: {model_file_id}')
 
             self.signals.progress_message.emit(
                 self.file_id,
                 FULL_3D_MODEL_PROGRESS,
                 "Uploaded images to Google Drive"
             )
-
+            image_file_id_list = []
             image_count = len(self.image_list)
             for i, image_path in enumerate(self.image_list):
                 fs_image_file_name = os.path.basename(image_path)
@@ -127,13 +127,13 @@ class GoogleDriveUploadWorker(_BaseWorker):
                 image_file = self.drive_service.files() \
                     .create(body=file_metadata, media_body=media, fields="id") \
                     .execute()
+                image_file_id_list.append(image_file.get("id"))
                 print(f'Image File ID: {image_file.get("id")}')
                 self.signals.progress_message.emit(
                     self.file_id,
                     FULL_3D_MODEL_PROGRESS + ((i + 1) * 29 / image_count),
                     f"Uploaded image {fs_image_file_name} as {image_file_name}"
                 )
-            
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -142,6 +142,7 @@ class GoogleDriveUploadWorker(_BaseWorker):
             self.signals.progress_message.emit(self.file_id, 0, "Failed to upload data to Google Drive")
         else:
             self.signals.progress_message.emit(self.file_id, 100, "All uploaded to Google Drive")
-            self.signals.status.emit(self.file_id, "finished")
+            self.signals.status.emit(self.file_id, "google_drive_upload_finished")
+            self.signals.result.emit(self.file_id, (model_file_id, image_file_id_list))
         finally:
             self.signals.finished.emit()

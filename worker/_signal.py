@@ -5,4 +5,5 @@ class WorkerSignals(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(ULID, tuple)
     status = pyqtSignal(ULID, str)
-    progress_message = pyqtSignal(ULID, int, str)
+    progress_message = pyqtSignal(ULID, float, str)
+    result = pyqtSignal(ULID, tuple)
