@@ -41,8 +41,7 @@ class S3UploadWorker(_BaseUploadWorker):
         )
         _, ext = os.path.splitext(self.file_path)
         self.model_file_name = f'{os.path.basename(self.file_path)}{ext}'
-        
-        self.category_path = os.path.join(*category_list)
+        self.category_path = os.path.join(*self.category_list)
     
     @pyqtSlot()
     def run(self):
