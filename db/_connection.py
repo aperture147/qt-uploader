@@ -93,8 +93,7 @@ class QtDBObject(QObject):
     def get_config(self, key: str) -> Any:
         with closing(self.conn.cursor()) as cur:
             cur.execute("""
-                SELECT value
-                FROM config
+                SELECT value FROM config
                 WHERE key = ?
                 LIMIT 1
             """, (key,))
@@ -124,7 +123,7 @@ class QtDBObject(QObject):
                     category_list, image_path_list,
                     task_status, task_progress, task_message
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     file_id.bytes,
