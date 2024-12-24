@@ -158,6 +158,7 @@ class MainWindow(QMainWindow):
         )
         upload_waiter_thread = QThread()
         upload_waiter.moveToThread(upload_waiter_thread)
+        upload_waiter.signals.finished.connect(lambda: self.db.set_file_status(file_id, "running"))
         upload_waiter.signals.finished.connect(upload_waiter_thread.quit)
         upload_waiter.signals.finished.connect(upload_waiter_thread.deleteLater)
         upload_waiter.signals.finished.connect(upload_waiter.deleteLater)
@@ -171,6 +172,7 @@ class MainWindow(QMainWindow):
         
         upload_waiter.signals.progress_message.connect(task_item.set_progress_message)
         upload_waiter.signals.progress_message.connect(self.db.set_file_progress_message)
+        upload_waiter.signals.finished.connect(lambda: self.running_task_dict.pop(file_id))
 
         google_drive_upload_worker = GoogleDriveUploadWorker(
             file_id, file_path, file_name,
