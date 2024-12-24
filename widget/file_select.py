@@ -131,36 +131,65 @@ class FileSelectDialog(QDialog):
 
         category_layout = QHBoxLayout()
         category_layout.setContentsMargins(0, 0, 0, 0)
+        category_layout.setSpacing(10)
+        
+        category_3_layout = QVBoxLayout()
+        category_3_layout.setSpacing(10)
+        category_3_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_3_combo_box = QComboBox()
+        self.category_3_combo_box.setEnabled(False)
+        self.category_3_combo_box.setPlaceholderText("Category 3")
+        category_3_layout.addWidget(QLabel('Category 3 <span style="color:red">*</span>'))
+        self.category_3_combo_box.setPlaceholderText("Category 3")
+        category_3_layout.addWidget(self.category_3_combo_box)
+        category_3_widget = QWidget()
+        category_3_widget.setLayout(category_3_layout)
+            
+        
+        category_2_layout = QVBoxLayout()
+        category_2_layout.setSpacing(10)
+        category_2_layout.setContentsMargins(0, 0, 0, 0)
+        self.category_2_combo_box = QComboBox()
+        self.category_2_combo_box.setEnabled(False)
+        self.category_2_combo_box.setPlaceholderText("Category 2")
+        category_2_layout.addWidget(QLabel('Category 2 <span style="color:red">*</span>'))
+        category_2_layout.addWidget(self.category_2_combo_box)
+        category_2_widget = QWidget()
+        category_2_widget.setLayout(category_2_layout)
         
         category_1_layout = QVBoxLayout()
+        category_1_layout.setSpacing(10)
         category_1_layout.setContentsMargins(0, 0, 0, 0)
         self.category_1_combo_box = QComboBox()
+        self.category_1_combo_box.setPlaceholderText("Category 1")
         self.category_1_combo_box.addItems(CATEGORY_DICTIONARY.keys())
+        
         category_1_layout.addWidget(QLabel('Category 1 <span style="color:red">*</span>'))
         category_1_layout.addWidget(self.category_1_combo_box)
         category_1_widget = QWidget()
-        
         category_1_widget.setLayout(category_1_layout)
+        
+        def category_1_changed(text):
+            self.category_2_combo_box.clear()
+            self.category_2_combo_box.addItems(CATEGORY_DICTIONARY[text])
+            self.category_2_combo_box.setEnabled(True)
+            self.category_2_combo_box.setCurrentIndex(-1)
+            
+            self.category_3_combo_box.clear()
+            self.category_3_combo_box.setEnabled(False)
+            self.category_3_combo_box.setCurrentIndex(-1)
+        
+        def category_2_changed(text):
+            self.category_3_combo_box.clear()
+            self.category_3_combo_box.addItems(CATEGORY_DICTIONARY[self.category_1_combo_box.currentText()][text])
+            self.category_3_combo_box.setEnabled(True)
+            self.category_3_combo_box.setCurrentIndex(-1)
+        
+        self.category_1_combo_box.currentTextChanged.connect(category_1_changed)
+        self.category_2_combo_box.currentTextChanged.connect(category_2_changed)
+        
         category_layout.addWidget(category_1_widget)
-        
-        category_2_layout = QVBoxLayout()
-        category_2_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_2_line_edit = QLineEdit()
-        self.category_2_line_edit.setPlaceholderText("Category 2")
-        category_2_layout.addWidget(QLabel('Category 2 <span style="color:red">*</span>'))
-        category_2_layout.addWidget(self.category_2_line_edit)
-        category_2_widget = QWidget()
-        category_2_widget.setLayout(category_2_layout)
         category_layout.addWidget(category_2_widget)
-        
-        category_3_layout = QVBoxLayout()
-        category_3_layout.setContentsMargins(0, 0, 0, 0)
-        self.category_3_line_edit = QLineEdit()
-        category_3_layout.addWidget(QLabel('Category 3 <span style="color:red">*</span>'))
-        self.category_3_line_edit.setPlaceholderText("Category 3")
-        category_3_layout.addWidget(self.category_3_line_edit)
-        category_3_widget = QWidget()
-        category_3_widget.setLayout(category_3_layout)
         category_layout.addWidget(category_3_widget)
         
         category_widget = QWidget()
@@ -243,13 +272,13 @@ class FileSelectDialog(QDialog):
         if not self.file_name_line_edit.text():
             missed_input.append("File Name")
             
-        if not self.category_1_line_edit.text():
+        if (self.category_1_combo_box.currentIndex() < 0) or not self.category_1_combo_box.currentText():
             missed_input.append("Category 1")
         
-        if not self.category_2_line_edit.text():
+        if (self.category_2_combo_box.currentIndex() < 0) or not self.category_2_combo_box.currentText():
             missed_input.append("Category 2")
             
-        if not self.category_3_line_edit.text():
+        if (self.category_3_combo_box.currentIndex() < 0) or not self.category_3_combo_box.currentText():
             missed_input.append("Category 3")
             
         if not self.blender_version_drop_down.currentText():
@@ -273,9 +302,9 @@ class FileSelectDialog(QDialog):
         self.file_selected.emit(
             self.file_path_line_edit.text(),
             self.file_name_line_edit.text(),
-            self.category_1_combo_box.text(),
-            self.category_2_line_edit.text(),
-            self.category_3_line_edit.text(),
+            self.category_1_combo_box.currentText(),
+            self.category_2_combo_box.currentText(),
+            self.category_3_combo_box.currentText(),
             self.blender_version_drop_down.currentText(),
             self.render_engine_drop_down.currentText(),
             [

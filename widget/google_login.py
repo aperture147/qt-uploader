@@ -76,33 +76,23 @@ class GoogleLoginMessageBox(QMessageBox):
         
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
-        self.worker.signals.finished.connect(self.end_worker_thread)
+        self.worker.signals.finished.connect(self.worker_thread.quit)
+        self.worker.signals.finished.connect(self.worker.deleteLater)
+        self.worker.signals.finished.connect(self.worker_thread.deleteLater)
         
         self.worker.signals.result.connect(self.signals.credentials.emit)
         self.worker.signals.result.connect(lambda _: self.accept())
         
         self.worker.signals.error.connect(self.reject)
         
-        # self.buttons()[0].clicked.connect(self.reject)
-        # self.buttons()[0].clicked.connect(end_worker_thread)
-        
         self.worker_thread.start()
-    
-    @pyqtSlot()
-    def end_worker_thread(self):
-        self.worker_thread.quit()
-        self.worker_thread.terminate()
-        self.worker.deleteLater()
-        self.worker_thread.deleteLater()
 
     @pyqtSlot()
     def reject(self):
-        self.end_worker_thread()
         self.worker_thread.wait(QDeadlineTimer(1000))
         super().reject()
     
     @pyqtSlot()
     def accept(self):
-        self.end_worker_thread()
         self.worker_thread.wait(QDeadlineTimer(1000))
         super().accept()
