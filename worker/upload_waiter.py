@@ -46,35 +46,6 @@ class UploadWaiterWorker(QObject):
         worker.signals.result.connect(lambda x, y: self.receive_result(slot_id, x, y))
         worker.signals.error.connect(lambda x, y: self.receive_error(slot_id, x, y))
     
-    def _send_confirm(self):
-        try:
-            print("sending result to server")
-            resp = requests.post(
-                'http://localhost:8787/model',
-                json={
-                    'name': self.name,
-                    'category_list': self.category_list,
-                    'r2_model_path': self.r2_file_path,
-                    'r2_image_path_list': self.r2_image_file_list,
-                    'google_drive_model_path': self.google_drive_file_id,
-                    'google_drive_image_path_list': self.google_drive_file_id_list,
-                    'blender_version': self.blender_version,
-                    'render_engine': self.render_engine
-                },
-                timeout=10
-            )
-            resp.raise_for_status()
-            resp_json = resp.json()
-            print("new model id: ", resp_json['id'])
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        else:
-            self.signals.result.emit((resp_json['id'],))
-        finally:
-            self.signals.finished.emit()
-    
     @pyqtSlot(str, ULID, tuple)
     def receive_result(self, slot_id: str, file_id: ULID, result: tuple):
         print(f"Received upload result of {slot_id} for {file_id}")

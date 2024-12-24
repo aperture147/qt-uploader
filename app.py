@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
         
         s3_upload_worker = S3UploadWorker(
             file_id, file_path, file_name,
-            category1, category2, category3,
+            [category1, category2, category3],
             blender_version, render_engine,
             image_path_list
         )
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
 
         google_drive_upload_worker = GoogleDriveUploadWorker(
             file_id, file_path, file_name,
-            category1, category2, category3,
+            [category1, category2, category3],
             blender_version, render_engine,
             image_path_list,
             self.google_oauth_credentials

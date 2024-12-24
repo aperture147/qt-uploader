@@ -31,13 +31,13 @@ class S3UploadWorker(_BaseUploadWorker):
             category_list: List[str],
             blender_version: str,
             render_engine: str,
-            image_list: list,
+            image_path_list: List[str],
         ):
         super().__init__(
             file_id, file_path, file_name,
             category_list,
             blender_version, render_engine,
-            image_list
+            image_path_list
         )
         _, ext = os.path.splitext(self.file_path)
         self.model_file_name = f'{os.path.basename(self.file_path)}{ext}'
@@ -77,8 +77,8 @@ class S3UploadWorker(_BaseUploadWorker):
                 "Uploaded images to S3"
             )
             image_key_list = []
-            image_count = len(self.image_list)
-            for i, image_path in enumerate(self.image_list):
+            image_count = len(self.image_path_list)
+            for i, image_path in enumerate(self.image_path_list):
                 fs_image_file_name = os.path.basename(image_path)
                 image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
                 

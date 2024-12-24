@@ -20,7 +20,7 @@ class _BaseUploadWorker(QRunnable):
             category_list: List[str],
             blender_version: str,
             render_engine: str,
-            image_list: list
+            image_path_list: List[str]
         ):
         super().__init__()
         
@@ -30,6 +30,6 @@ class _BaseUploadWorker(QRunnable):
         self.category_list = [re.sub(FILE_NAME_REGEX, '_', x) for x in category_list]
         self.blender_version = blender_version
         self.render_engine = render_engine
-        self.image_list = image_list
+        self.image_path_list = image_path_list
 
         self.signals = WorkerSignals()

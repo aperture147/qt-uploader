@@ -26,14 +26,14 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             category_list: List[str],
             blender_version: str,
             render_engine: str,
-            image_list: list,
+            image_path_list: List[str],
             credentials: Credentials
         ):
         super().__init__(
             file_id, file_path, file_name,
             category_list,
             blender_version, render_engine,
-            image_list
+            image_path_list
         )
         self.credentials = credentials
         self.drive_service = build('drive', 'v3', credentials=self.credentials)
@@ -108,8 +108,8 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                 "Uploaded images to Google Drive"
             )
             image_file_id_list = []
-            image_count = len(self.image_list)
-            for i, image_path in enumerate(self.image_list):
+            image_count = len(self.image_path_list)
+            for i, image_path in enumerate(self.image_path_list):
                 fs_image_file_name = os.path.basename(image_path)
                 image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
                 
