@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSlot, pyqtSignal, QDir
 
 from ulid import ULID
 
@@ -40,8 +40,8 @@ class ImageItemWidget(QWidget):
         self.item_layout = QVBoxLayout()
         
         self.item_layout.setSpacing(10)
-
-        self.file_path = file_path
+        
+        self.file_path = QDir.toNativeSeparators(file_path)
         name = os.path.basename(file_path)
         self.image_id = str(ULID())
 
@@ -63,7 +63,7 @@ class ImageItemWidget(QWidget):
         self.delete_image_button = QPushButton("Delete")
         self.delete_image_button.clicked.connect(self.delete_image)
         self.delete_image_button.setStyleSheet("background-color: red")
-        self.delete_image_button.setFixedWidth(50)
+        self.delete_image_button.setFixedWidth(40)
         
         self.image_name_and_btn_layout.addWidget(self.image_name)
         self.image_name_and_btn_layout.addWidget(self.delete_image_button)
@@ -316,11 +316,13 @@ class FileSelectDialog(QDialog):
     
     @pyqtSlot()
     def select_file(self):
+        file_path = file_path.replace("/", os.sep)
         file_path, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "Archive File (*.zip *.rar);;Any File (*)")
         
         if file_path:
-            self.file_path_line_edit.setText(file_path)
-            *_, file_name = file_path.split(os.sep)
+            native_file_path = QDir.toNativeSeparators(file_path)
+            self.file_path_line_edit.setText(native_file_path)
+            *_, file_name = native_file_path.split(os.sep)
             self.file_name_line_edit.setText(os.path.splitext(file_name)[0])
             
     @pyqtSlot()
