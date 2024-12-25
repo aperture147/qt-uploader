@@ -1,4 +1,5 @@
 import sys
+import os
 from typing import Dict, Tuple, List
 
 from PyQt6.QtWidgets import (
@@ -6,6 +7,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QWidget
 )
 from PyQt6.QtCore import QThreadPool, pyqtSlot, QThread
+from PyQt6.QtGui import QIcon
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -14,7 +16,7 @@ from ulid import ULID
 
 from widget import (
     FileSelectDialog, FileListWidget,FileListWidgetItem,
-    GoogleLoginMessageBox, # GoogleSheetMessageBox
+    GoogleLoginMessageBox
 )
 
 from worker import (
@@ -26,6 +28,15 @@ from util.api import create_api_upload_worker
 
 
 from db import QtDBObject
+
+basedir = os.path.dirname(__file__)
+
+try:
+    from ctypes import windll  # Only exists on Windows.
+    myappid = 'com.3dskyfree.uploader.beta1'
+    windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except ImportError:
+    pass
 
 class MainWindow(QMainWindow):
     
@@ -223,6 +234,7 @@ class MainWindow(QMainWindow):
         
 def main():
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(os.path.join(basedir, "icon.ico")))
     main_gui = MainWindow()
     main_gui.show()
     return app.exec()
