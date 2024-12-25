@@ -316,7 +316,6 @@ class FileSelectDialog(QDialog):
     
     @pyqtSlot()
     def select_file(self):
-        file_path = file_path.replace("/", os.sep)
         file_path, _ = QFileDialog.getOpenFileName(self, "Select 3D Model File", __file__, "Archive File (*.zip *.rar);;Any File (*)")
         
         if file_path:
