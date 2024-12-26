@@ -16,7 +16,7 @@ from ulid import ULID
 
 from widget import (
     FileSelectDialog, FileListWidget,FileListWidgetItem,
-    GoogleLoginMessageBox
+    GoogleLoginMessageBox, InvalidOrNotExistGoogleDriveCredentialMessageBox
 )
 
 from worker import (
@@ -126,11 +126,15 @@ class MainWindow(QMainWindow):
     @pyqtSlot(dict)
     def save_google_token(self, credentials: dict):
         self.db.save_config('google_oauth_token', credentials)
+        self.google_oauth_credentials = Credentials.from_authorized_user_info(credentials)
         self.google_login_btn.setText("Google Drive Logged In")
         self.google_login_btn.setEnabled(False)
     
     @pyqtSlot()
     def upload_new_3d_file(self):
+        if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
+            InvalidOrNotExistGoogleDriveCredentialMessageBox().exec()
+            return
         self.file_select_dialog.exec()
 
     @pyqtSlot(str, str, str, str, str, str, str, list)
@@ -146,7 +150,7 @@ class MainWindow(QMainWindow):
         image_path_list: List[str]
     ):
         if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
-            print("Google Drive credential is invalid, cannot upload")
+            InvalidOrNotExistGoogleDriveCredentialMessageBox().exec()
             # FIXME: show message box
             return
 

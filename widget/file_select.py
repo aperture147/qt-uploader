@@ -22,6 +22,14 @@ class TooManyImageMessageBox(QMessageBox):
         self.setIcon(QMessageBox.Icon.Critical)
         self.setStandardButtons(QMessageBox.StandardButton.Ok)
 
+class InvalidOrNotExistGoogleDriveCredentialMessageBox(QMessageBox):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Google Drive Credential does not exist or is invalid")
+        self.setText("Login to Google Drive first before uploading the files. If you have logged in, please close the app and reopen it.")
+        self.setIcon(QMessageBox.Icon.Warning)
+        self.setStandardButtons(QMessageBox.StandardButton.Ok)
+
 class RequireFieldsNotFulfilledMessageBox(QMessageBox):
     def __init__(self, required_field_list: list):
         super().__init__()
