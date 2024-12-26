@@ -1,5 +1,3 @@
-import traceback
-import sys
 import math
 
 from typing import List
@@ -7,8 +5,6 @@ from typing import List
 from ulid import ULID
 
 from PyQt6.QtCore import QObject, pyqtSlot
-
-import requests
 
 from ._signal import WorkerSignals
 from ._upload_base import _BaseUploadWorker as UploadWorker

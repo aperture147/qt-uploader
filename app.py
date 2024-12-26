@@ -16,7 +16,8 @@ from ulid import ULID
 
 from widget import (
     FileSelectDialog, FileListWidget,FileListWidgetItem,
-    GoogleLoginMessageBox, InvalidOrNotExistGoogleDriveCredentialMessageBox
+    GoogleLoginMessageBox, InvalidOrNotExistGoogleDriveCredentialMessageBox,
+    GoogleDriveLinkMessageBox
 )
 
 from worker import (
@@ -64,6 +65,12 @@ class MainWindow(QMainWindow):
         self.google_login_btn.setEnabled(False)
         google_btn_layout.addWidget(self.google_login_btn)
 
+        self.google_drive_link_btn = QPushButton("Google Drive Link Set")
+        self.google_drive_link_btn.clicked.connect(self.set_google_link)
+        self.google_drive_link_btn.setEnabled(False)
+        google_btn_layout.addWidget(self.google_drive_link_btn)
+
+
         google_btn_widget = QWidget()
         google_btn_widget.setLayout(google_btn_layout)
 
@@ -79,8 +86,12 @@ class MainWindow(QMainWindow):
         self.file_select_dialog = FileSelectDialog()
         self.file_select_dialog.file_selected.connect(self.create_new_upload_task)
 
+        self.google_drive_folder_id = self.db.get_config('google_drive_folder_id')
         google_oauth_token = self.db.get_config('google_oauth_token')
         self.google_oauth_credentials = None
+        if not self.google_drive_folder_id and google_oauth_token:
+            self.google_drive_link_btn.setEnabled(True)
+            self.google_drive_link_btn.setText("Set Google Drive Link")
         
         if not google_oauth_token:
             self.google_login_btn.setEnabled(True)
@@ -118,6 +129,13 @@ class MainWindow(QMainWindow):
     def init_running_task_dict(self):
         self.running_task_dict: Dict[ULID, Tuple[S3UploadWorker, GoogleDriveUploadWorker, UploadWaiterWorker, QThread]] = {}
     
+    @pyqtSlot()
+    def set_google_link(self):
+        dlg = GoogleDriveLinkMessageBox(self.google_oauth_credentials)
+        dlg.signals.result.connect(self.save_google_drive_folder_id)
+        dlg.exec()
+
+    @pyqtSlot()
     def google_login(self):
         dlg = GoogleLoginMessageBox()
         dlg.signals.credentials.connect(self.save_google_token)
@@ -129,7 +147,17 @@ class MainWindow(QMainWindow):
         self.google_oauth_credentials = Credentials.from_authorized_user_info(credentials)
         self.google_login_btn.setText("Google Drive Logged In")
         self.google_login_btn.setEnabled(False)
+        if not self.google_drive_folder_id:
+            self.google_drive_link_btn.setEnabled(True)
+            self.google_drive_link_btn.setText("Set Google Drive Link")
     
+    @pyqtSlot(str)
+    def save_google_drive_folder_id(self, folder_id: str):
+        self.db.save_config('google_drive_folder_id', folder_id)
+        self.google_drive_folder_id = folder_id
+        self.google_drive_link_btn.setText("Google Drive Link Set")
+        self.google_drive_link_btn.setEnabled(False)
+
     @pyqtSlot()
     def upload_new_3d_file(self):
         if not self.google_oauth_credentials or not self.google_oauth_credentials.valid:
