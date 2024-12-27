@@ -7,7 +7,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal
 
+from googleapiclient.errors import HttpError
 from googleapiclient.discovery import build
+
 from google.oauth2.credentials import Credentials
 
 class GoogleDriveLinkSignals(QObject):
@@ -29,9 +31,9 @@ class GoogleDriveLinkPermissionDeniedMessageBox(QMessageBox):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Permission Denied")
-        self.setText("Permission Denied")
-        self.setInformativeText("You don't have permission to access this folder")
+        self.setWindowTitle("Permission Denied or Not Found")
+        self.setText("Permission Denied or Not Found")
+        self.setInformativeText("You don't have permission to access this folder or this folder doesn't exist")
         self.setIcon(QMessageBox.Icon.Critical)
         self.setStandardButtons(QMessageBox.StandardButton.Ok)
 
@@ -78,29 +80,35 @@ class GoogleDriveLinkMessageBox(QDialog):
             return
         
         folder_id = path_parts[path_parts.index("folders") + 1]
-        
-        permissions = self.drive_service.permissions().list(
-            fileId=folder_id,
-            fields="permissions(id, role, emailAddress)"
-        ).execute()
-        
-        permissions: list[str] = permissions.get("permissions", [])
-        if not permissions:
-            InvalidGoogleDriveLinkMessageBox().exec()
-            return
 
-        user_info_service = build('oauth2', 'v2', credentials=self.credentials)
-        user_info = user_info_service.userinfo().get().execute()
-        user_email = user_info.get("email")
-        for permission in permissions:
-            if (permission["role"] == "owner") or \
-                ((
-                    (permission.get("emailAddress") == user_email) or \
-                    (permission["id"] == "anyoneWithLink") \
-                ) and (permission["role"] == "writer")):
-                self.signals.result.emit(folder_id)
-                self.signals.finished.emit()
-                self.accept()
+        try:
+            permissions = self.drive_service.permissions().list(
+                fileId=folder_id,
+                fields="permissions(id, role, emailAddress)"
+            ).execute()
+            
+            permissions: list[str] = permissions.get("permissions", [])
+            if not permissions:
+                InvalidGoogleDriveLinkMessageBox().exec()
                 return
-        
+            user_info_service = build('oauth2', 'v2', credentials=self.credentials)
+            user_info = user_info_service.userinfo().get().execute()
+            user_email = user_info.get("email")
+            for permission in permissions:
+                if (permission["role"] == "owner") or \
+                    ((
+                        (permission.get("emailAddress") == user_email) or \
+                        (permission["id"] == "anyoneWithLink") \
+                    ) and (permission["role"] == "writer")):
+                    self.signals.result.emit(folder_id)
+                    self.signals.finished.emit()
+                    self.accept()
+                    return
+        except HttpError as error:
+            if error.resp.status in [403, 404]:
+                GoogleDriveLinkPermissionDeniedMessageBox().exec()
+            else:
+                InvalidGoogleDriveLinkMessageBox().exec()
+            return
+    
         GoogleDriveLinkPermissionDeniedMessageBox().exec()
