@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         file_id = ULID()
         
         self.db.create_file(
-            file_id, file_path, file_name,
+            file_id, file_name, file_path,
             [category1, category2, category3],
             image_path_list,
             blender_version, render_engine
