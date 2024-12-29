@@ -84,6 +84,7 @@ class GoogleDriveLinkMessageBox(QDialog):
         try:
             permissions = self.drive_service.permissions().list(
                 fileId=folder_id,
+                supportsAllDrives=True,
                 fields="permissions(id, role, emailAddress)"
             ).execute()
             

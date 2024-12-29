@@ -222,7 +222,8 @@ class MainWindow(QMainWindow):
             [category1, category2, category3],
             blender_version, render_engine,
             image_path_list,
-            self.google_oauth_credentials
+            self.google_oauth_credentials,
+            self.google_drive_folder_id
         )
         
         upload_waiter.add_upload_worker("google_drive", google_drive_upload_worker)

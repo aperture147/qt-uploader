@@ -27,7 +27,8 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             blender_version: str,
             render_engine: str,
             image_path_list: List[str],
-            credentials: Credentials
+            credentials: Credentials,
+            parent_folder_id: str = None
         ):
         super().__init__(
             file_id, file_path, file_name,
@@ -36,6 +37,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             image_path_list
         )
         self.credentials = credentials
+        self.parent_folder_id = parent_folder_id
         self.drive_service = build('drive', 'v3', credentials=self.credentials)
 
     @pyqtSlot()
@@ -44,7 +46,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             self.signals.progress_message.emit(self.file_id, 1, "Preparing for uploading to Google Drive")
 
             self.signals.progress_message.emit(self.file_id, 3, "Checking for existing folders")
-            parent_folder_id = None
+            parent_folder_id = self.parent_folder_id
             folder_metadata = {
                 'mimeType': 'application/vnd.google-apps.folder'
             }
@@ -67,7 +69,9 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                 results = self.drive_service.files().list(
                     q=query,
                     spaces='drive',
-                    fields='files(id, name)').execute()
+                    supportsAllDrives=True,
+                    fields='files(id, name)'
+                ).execute()
                 
                 items = results.get('files', [])
                 if items:
@@ -75,7 +79,11 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                     parent_folder_id = items[0]['id']
                 else:
                     self.signals.progress_message.emit(self.file_id, folder_checking_progress + 5, f"Folder {current_folder_path} does not exist, creating")
-                    folder = self.drive_service.files().create(body=folder_metadata, fields='id').execute()
+                    folder = self.drive_service.files().create(
+                        body=folder_metadata,
+                        supportsAllDrives=True,
+                        fields='id'
+                    ).execute()
                     self.signals.progress_message.emit(self.file_id, folder_checking_progress + 5, f"Folder {current_folder_path} created")
                     parent_folder_id = folder.get('id')
 
@@ -97,7 +105,11 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             )
 
             file = self.drive_service.files() \
-                .create(body=file_metadata, media_body=media, fields="id") \
+                .create(
+                    body=file_metadata,
+                    media_body=media,
+                    supportsAllDrives=True,
+                    fields="id") \
                 .execute()
             model_file_id = file.get("id")
             print(f'File ID: {model_file_id}')
@@ -126,7 +138,12 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                 image_mime_type, _ = mimetypes.guess_type(image_path)
                 media = MediaFileUpload(image_path, mimetype=image_mime_type)
                 image_file = self.drive_service.files() \
-                    .create(body=file_metadata, media_body=media, fields="id") \
+                    .create(
+                        body=file_metadata,
+                        media_body=media,
+                        supportsAllDrives=True,
+                        fields="id"
+                    ) \
                     .execute()
                 image_file_id_list.append(image_file.get("id"))
                 print(f'Image File ID: {image_file.get("id")}')
