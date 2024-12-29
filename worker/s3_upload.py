@@ -79,7 +79,7 @@ class S3UploadWorker(_BaseUploadWorker):
             image_count = len(self.image_path_list)
             for i, image_path in enumerate(self.image_path_list):
                 fs_image_file_name = os.path.basename(image_path)
-                image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
+                image_file_name = f'{self.file_name}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
                 
                 self.signals.progress_message.emit(
                     self.file_id,

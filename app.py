@@ -86,10 +86,10 @@ class MainWindow(QMainWindow):
         self.file_select_dialog = FileSelectDialog()
         self.file_select_dialog.file_selected.connect(self.create_new_upload_task)
 
-        self.google_drive_folder_id = self.db.get_config('google_drive_folder_id')
+        self.google_drive_folder_config = self.db.get_config('google_drive_folder_config')
         google_oauth_token = self.db.get_config('google_oauth_token')
         self.google_oauth_credentials = None
-        if not self.google_drive_folder_id and google_oauth_token:
+        if not self.google_drive_folder_config and google_oauth_token:
             self.google_drive_link_btn.setEnabled(True)
             self.google_drive_link_btn.setText("Set Google Drive Link")
         
@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def set_google_link(self):
         dlg = GoogleDriveLinkMessageBox(self.google_oauth_credentials)
-        dlg.signals.result.connect(self.save_google_drive_folder_id)
+        dlg.signals.results.connect(self.save_google_drive_folder_info)
         dlg.exec()
 
     @pyqtSlot()
@@ -147,14 +147,15 @@ class MainWindow(QMainWindow):
         self.google_oauth_credentials = Credentials.from_authorized_user_info(credentials)
         self.google_login_btn.setText("Google Drive Logged In")
         self.google_login_btn.setEnabled(False)
-        if not self.google_drive_folder_id:
+        if not self.google_drive_folder_config:
             self.google_drive_link_btn.setEnabled(True)
             self.google_drive_link_btn.setText("Set Google Drive Link")
     
-    @pyqtSlot(str)
-    def save_google_drive_folder_id(self, folder_id: str):
-        self.db.save_config('google_drive_folder_id', folder_id)
-        self.google_drive_folder_id = folder_id
+    @pyqtSlot(tuple)
+    def save_google_drive_folder_info(self, results: tuple):
+        config_dict, = results
+        self.db.save_config('google_drive_folder_config', config_dict)
+        self.google_drive_folder_config = config_dict
         self.google_drive_link_btn.setText("Google Drive Link Set")
         self.google_drive_link_btn.setEnabled(False)
 
@@ -223,7 +224,7 @@ class MainWindow(QMainWindow):
             blender_version, render_engine,
             image_path_list,
             self.google_oauth_credentials,
-            self.google_drive_folder_id
+            self.google_drive_folder_config
         )
         
         upload_waiter.add_upload_worker("google_drive", google_drive_upload_worker)

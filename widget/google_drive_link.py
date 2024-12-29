@@ -14,7 +14,7 @@ from google.oauth2.credentials import Credentials
 
 class GoogleDriveLinkSignals(QObject):
     error = pyqtSignal(tuple)
-    result = pyqtSignal(str)
+    results = pyqtSignal(tuple)
     finished = pyqtSignal()
 
 class InvalidGoogleDriveLinkMessageBox(QMessageBox):
@@ -71,17 +71,28 @@ class GoogleDriveLinkMessageBox(QDialog):
     def check_and_accept(self):
         drive_link = self.sheet_link.text()
         if not drive_link:
+            print("No link")
             InvalidGoogleDriveLinkMessageBox().exec()
             return
         parse_result = urllib.parse.urlparse(drive_link)
         path_parts = parse_result.path.split("/")
         if "folders" not in path_parts:
+            print("Invalid folder link")
             InvalidGoogleDriveLinkMessageBox().exec()
             return
         
         folder_id = path_parts[path_parts.index("folders") + 1]
-
+        
         try:
+            folder_result = self.drive_service.files().get(
+                fileId=folder_id,
+                supportsAllDrives=True,
+                fields="driveId"
+            ).execute()
+            drive_id = folder_result.get("driveId")
+            if not drive_id:
+                print("Not a shared drive")
+
             permissions = self.drive_service.permissions().list(
                 fileId=folder_id,
                 supportsAllDrives=True,
@@ -90,8 +101,10 @@ class GoogleDriveLinkMessageBox(QDialog):
             
             permissions: list[str] = permissions.get("permissions", [])
             if not permissions:
+                print("No permission provided")
                 InvalidGoogleDriveLinkMessageBox().exec()
                 return
+            
             user_info_service = build('oauth2', 'v2', credentials=self.credentials)
             user_info = user_info_service.userinfo().get().execute()
             user_email = user_info.get("email")
@@ -101,11 +114,15 @@ class GoogleDriveLinkMessageBox(QDialog):
                         (permission.get("emailAddress") == user_email) or \
                         (permission["id"] == "anyoneWithLink") \
                     ) and (permission["role"] == "writer")):
-                    self.signals.result.emit(folder_id)
+                    self.signals.results.emit(({
+                        'id': folder_id,
+                        'drive_id': drive_id
+                    },))
                     self.signals.finished.emit()
                     self.accept()
                     return
         except HttpError as error:
+            print("Google Drive Link Error")
             if error.resp.status in [403, 404]:
                 GoogleDriveLinkPermissionDeniedMessageBox().exec()
             else:

@@ -28,7 +28,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             render_engine: str,
             image_path_list: List[str],
             credentials: Credentials,
-            parent_folder_id: str = None
+            folder_config: dict = {}
         ):
         super().__init__(
             file_id, file_path, file_name,
@@ -37,7 +37,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             image_path_list
         )
         self.credentials = credentials
-        self.parent_folder_id = parent_folder_id
+        self.folder_config = folder_config or {}
         self.drive_service = build('drive', 'v3', credentials=self.credentials)
 
     @pyqtSlot()
@@ -46,7 +46,8 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             self.signals.progress_message.emit(self.file_id, 1, "Preparing for uploading to Google Drive")
 
             self.signals.progress_message.emit(self.file_id, 3, "Checking for existing folders")
-            parent_folder_id = self.parent_folder_id
+            parent_folder_id = self.folder_config.get("id")
+            drive_id = self.folder_config.get("drive_id")
             folder_metadata = {
                 'mimeType': 'application/vnd.google-apps.folder'
             }
@@ -66,12 +67,18 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
                     folder_metadata['parents'] = [parent_folder_id]
                 
                 query = " and ".join(conditions)
-                results = self.drive_service.files().list(
-                    q=query,
-                    spaces='drive',
-                    supportsAllDrives=True,
-                    fields='files(id, name)'
-                ).execute()
+                list_params = {
+                    'q': query,
+                    'supportsAllDrives': True,
+                    'fields': 'files(id, name, parents)'
+                }
+                if drive_id:
+                    list_params['supportsAllDrives'] = True
+                    list_params['includeItemsFromAllDrives'] = True
+                    list_params['driveId'] = drive_id
+                    list_params['corpora'] = 'drive'
+                    
+                results = self.drive_service.files().list(**list_params).execute()
                 
                 items = results.get('files', [])
                 if items:
@@ -123,7 +130,7 @@ class GoogleDriveUploadWorker(_BaseUploadWorker):
             image_count = len(self.image_path_list)
             for i, image_path in enumerate(self.image_path_list):
                 fs_image_file_name = os.path.basename(image_path)
-                image_file_name = f'{os.path.splitext(self.file_name)[0]}-preview-{i}{os.path.splitext(fs_image_file_name)[1]}'
+                image_file_name = f'{self.file_name}-preview-{i + 1}{os.path.splitext(fs_image_file_name)[1]}'
                 
                 self.signals.progress_message.emit(
                     self.file_id,

@@ -41,6 +41,7 @@ class UploadWaiterWorker(QObject):
         worker.signals.progress_message.connect(lambda x, y, z: self.receive_progress_message(slot_id, x, y, z))
         worker.signals.result.connect(lambda x, y: self.receive_result(slot_id, x, y))
         worker.signals.error.connect(lambda x, y: self.receive_error(slot_id, x, y))
+        worker.signals.finished.connect(self.receive_finished)
     
     @pyqtSlot(str, ULID, tuple)
     def receive_result(self, slot_id: str, file_id: ULID, result: tuple):
@@ -55,7 +56,7 @@ class UploadWaiterWorker(QObject):
     
     @pyqtSlot(str, ULID, float, str)
     def receive_progress_message(self, slot_id: str, file_id: ULID, progress: float, message: str):
-        print(f"Received pload progress of {slot_id} for {file_id}: {progress:.2f}% - {message}")
+        print(f"Received upload progress of {slot_id} for {file_id}: {progress:.2f}% - {message}")
         self.progress_dict[slot_id] = progress
         self.signals.progress_message.emit(
             self.file_id,
@@ -66,5 +67,12 @@ class UploadWaiterWorker(QObject):
     @pyqtSlot(str, ULID, tuple)
     def receive_error(self, slot_id: str, file_id: ULID, err_tuple: tuple):
         print(f"Slot {slot_id} caused error: {err_tuple[0]}")
+        self.count -= 1
         self.signals.error.emit(file_id, err_tuple)
+    
+    @pyqtSlot()
+    def receive_finished(self):
+        if self.count > 0:
+            print(f'Waiting for remaining {self.count} finish event')
+            return
         self.signals.finished.emit()
