@@ -12,7 +12,8 @@ from ulid import ULID
 from ._upload_base import (
     _BaseUploadWorker,
     FULL_3D_MODEL_PROGRESS,
-    MODEL_FILE_UPLOAD_PROGRESS_RATIO
+    MODEL_FILE_UPLOAD_PROGRESS_RATIO,
+    UPLOADED_MODELS_BUCKET_NAME
 )
 
 s3_client = boto3.client(
@@ -65,7 +66,7 @@ class S3UploadWorker(_BaseUploadWorker):
             
             s3_client.upload_file(
                 Filename=self.file_path,
-                Bucket="test-bucket",
+                Bucket=UPLOADED_MODELS_BUCKET_NAME,
                 Key=model_key,
                 Callback=upload_progress
             )
@@ -92,7 +93,7 @@ class S3UploadWorker(_BaseUploadWorker):
                 )
                 s3_client.upload_file(
                     Filename=image_path,
-                    Bucket="test-bucket",
+                    Bucket=UPLOADED_MODELS_BUCKET_NAME,
                     Key=image_key
                 )
                 image_key_list.append(image_key)

@@ -9,6 +9,7 @@ from ._signal import WorkerSignals
 FILE_NAME_REGEX = r'[^\w_. -]'
 MODEL_FILE_UPLOAD_PROGRESS_RATIO = 0.7
 FULL_3D_MODEL_PROGRESS = 100 * MODEL_FILE_UPLOAD_PROGRESS_RATIO
+UPLOADED_MODELS_BUCKET_NAME = 'uploaded-models'
 
 
 class _BaseUploadWorker(QRunnable):
