@@ -79,6 +79,15 @@ class QtDBObject(QObject):
                     status, progress, message
                 )
     
+    @pyqtSlot(ULID)
+    def delete_file(self, file_id: ULID):
+        with closing(self.conn.cursor()) as cur:
+            cur.execute("""
+                DELETE FROM file
+                WHERE id = ?
+            """, (file_id.bytes,))
+            self.conn.commit()
+    
     @pyqtSlot(str, dict)
     def save_config(self, key: str, value: dict):
         with closing(self.conn.cursor()) as cur:

@@ -3,9 +3,13 @@ import math
 from PyQt6.QtWidgets import (
     QListWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QWidget, QPushButton,
-    QListWidgetItem, QProgressBar
+    QListWidgetItem, QProgressBar,
+    QMessageBox
 )
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import (
+    Qt, pyqtSlot,
+    QObject, pyqtSignal
+)
 from ulid import ULID
 
 STATUS_TO_COLOR = {
@@ -15,10 +19,22 @@ STATUS_TO_COLOR = {
     'failed': 'red'
 }
 
+class FileListWidgetDeleteMessageBox(QMessageBox):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Delete File")
+        self.setText("Are you sure you want to delete this file?")
+        self.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        self.setDefaultButton(QMessageBox.StandardButton.No)
+
+class FileListWidgetItemSignals(QObject):
+    deleted = pyqtSignal(ULID)
+
 class FileListWidgetItem(QWidget):
     
     def __init__(
         self,
+        file_id: ULID,
         name: str,
         status: str = 'pending',
         progress: int = 0,
@@ -26,6 +42,9 @@ class FileListWidgetItem(QWidget):
     ):
         super().__init__()
         
+        self.file_id = file_id
+        self.signals = FileListWidgetItemSignals()
+
         item_layout = QHBoxLayout()
         item_layout.setSpacing(10)
         
@@ -47,11 +66,23 @@ class FileListWidgetItem(QWidget):
         item_layout.addWidget(self.task_progress_bar)
         
         self.task_delete_button = QPushButton("Delete")
+        self.task_delete_button.clicked.connect(self.delete_item)
         self.task_delete_button.setFixedWidth(60)
         item_layout.addWidget(self.task_delete_button)
         
         self.setLayout(item_layout)
 
+    @pyqtSlot()
+    def confirm_delete(self):
+        self.signals.deleted.emit(self.file_id)
+        self.deleteLater()
+
+    @pyqtSlot()
+    def delete_item(self):
+        msg_box = FileListWidgetDeleteMessageBox()
+        msg_box.accepted.connect(self.confirm_delete)
+        msg_box.exec()
+        
     @pyqtSlot(ULID, float, str)
     def set_progress_message(self, file_id: ULID, progress: float, status: str):
         self.task_progress_bar.setValue(math.ceil(progress))
@@ -75,9 +106,10 @@ class FileListWidget(QListWidget):
         for item in item_list:
             self.add_item(item)
     
-    def add_item(self, widgetItem: FileListWidgetItem):
+    def add_item(self, widget_item: FileListWidgetItem):
         item = QListWidgetItem()
-        item.setSizeHint(widgetItem.sizeHint())
+        item.setSizeHint(widget_item.sizeHint())
         self.insertItem(0, item)
-        self.setItemWidget(item, widgetItem)
+        self.setItemWidget(item, widget_item)
         
+        widget_item.signals.deleted.connect(lambda _: self.takeItem(self.row(item)))

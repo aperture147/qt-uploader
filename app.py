@@ -15,9 +15,9 @@ from google.auth.transport.requests import Request
 from ulid import ULID
 
 from widget import (
-    FileSelectDialog, FileListWidget,FileListWidgetItem,
-    GoogleLoginMessageBox, InvalidOrNotExistGoogleDriveCredentialMessageBox,
-    GoogleDriveLinkMessageBox
+    FileSelectDialog, FileListWidget, FileListWidgetItem,
+    InvalidOrNotExistGoogleDriveCredentialMessageBox,
+    GoogleLoginMessageBox, GoogleDriveLinkMessageBox
 )
 
 from worker import (
@@ -117,7 +117,8 @@ class MainWindow(QMainWindow):
         file_list = self.db.list_files()
         for file_id, name, *_, \
             status, progress, message in file_list:
-            task_item = FileListWidgetItem(name, status, progress, message)
+            task_item = FileListWidgetItem(file_id, name, status, progress, message)
+            task_item.signals.deleted.connect(self.db.delete_file)
             self.file_list.add_item(task_item)
             if status == "finished":
                 continue
@@ -183,10 +184,10 @@ class MainWindow(QMainWindow):
             # FIXME: show message box
             return
 
-        task_item = FileListWidgetItem(file_name)
-        self.file_list.add_item(task_item)
-        
         file_id = ULID()
+        task_item = FileListWidgetItem(file_id, file_name)
+        task_item.signals.deleted.connect(self.db.delete_file)
+        self.file_list.add_item(task_item)
         
         self.db.create_file(
             file_id, file_name, file_path,

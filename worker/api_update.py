@@ -41,7 +41,7 @@ class APIUpdateWorker(QRunnable):
         try:
             print("sending result to server")
             resp = requests.post(
-                'https://uploader-api.aperture147.workers.dev/model',
+                'https://uploader-api.wild-field-e58d.workers.dev/model',
                 json={
                     'name': self.name,
                     'category_list': self.category_list,
