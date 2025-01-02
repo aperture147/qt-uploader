@@ -6,19 +6,7 @@ from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import pyqtSlot, QThread, pyqtSignal, QObject, QDeadlineTimer
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-CLIENT_CONFIG = {
-    "installed": {
-        "client_id": "1032794322434-6muavbv0khohaoo29qv73lf4adt99s0k.apps.googleusercontent.com",
-        "project_id": "aperture-445207",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_secret": "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",
-        "redirect_uris": [
-            "http://localhost"
-        ]
-    }
-}
+CLIENT_CONFIG = {}
 
 SCOPES = [
     "https://www.googleapis.com/auth/drive.appdata",
