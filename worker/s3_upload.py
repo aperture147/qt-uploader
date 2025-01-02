@@ -18,9 +18,6 @@ from ._upload_base import (
 
 s3_client = boto3.client(
     "s3",
-    endpoint_url = 'https://c170cc0324a2bd1f50c78299a9969a0c.r2.cloudflarestorage.com',
-    aws_access_key_id = 'fab7ca3ed13a36b3f9898d7691fdfb49',
-    aws_secret_access_key = '6af2e55d844c2491090fcbeabe1f9b3fda70efd9a2c2798a6450cd6df4efe5b3',
 )
 
 class S3UploadWorker(_BaseUploadWorker):
